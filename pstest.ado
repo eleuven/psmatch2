@@ -1,4 +1,4 @@
-*! version 4.1.0 7nov2014 E. Leuven, B. Sianesi
+*! version 4.2.1 19jan2015 E. Leuven, B. Sianesi
 program define pstest
 	version 11.0
 	#delimit ;
@@ -17,6 +17,7 @@ program define pstest
 	ONLYsig
 	GRaph
 	HIST
+	SCatter
 	RUBin
 	ATU
 	*
@@ -49,6 +50,17 @@ program define pstest
 		exit 198
 	}
 
+	if ("`graph'"!="" & "`scatter'"!="") {
+		di as error "Error: choose between " as input "dot graph " as error "and " as input "scatter"
+		exit 198
+	}
+
+	if ("`scatter'"!="" & "`hist'"!="") {
+		di as error "Error: choose between " as input "scatter " as error "and " as input "histogram"
+		exit 198
+	}
+
+	
 	capture confirm var _treated
 	if (_rc & "`treated'"=="") | ("`raw'"!="" & "`treated'"=="") {
 		di as error "Error: provide treatment indicator variable"
@@ -79,10 +91,10 @@ program define pstest
 	qui replace  `mweight' = `support' if cond("`atu'" == "", `treated'==1, `treated'==0)
 
 	if ("`density'"=="" & "`box'"=="" & "`both'"!="") {
-		breduc  `varlist' , touse(`touse') mw(`mweight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' options("`options'") `rubin'
+		breduc  `varlist' , touse(`touse') mw(`mweight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' `scatter' options("`options'") `rubin'
 	}
 	if ("`density'"=="" & "`box'"=="" & "`both'"=="") {
-		breduc1 `varlist' , touse(`touse') mw(`mweight') tr(`treated') sup(`support') `notable' `dist' `label' `graph'  `hist' options("`options'") `rubin' `onlysig' `raw'
+		breduc1 `varlist' , touse(`touse') mw(`mweight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' `scatter' options("`options'") `rubin' `onlysig' `raw'
 	}
 	if ("`density'"!="" | "`box'"!="") {
 		plotvar `varlist' , touse(`touse') `raw' `both' mw(`mweight') tr(`treated') sup(`support') `density' `box' `outlier' options("`options'") 
@@ -92,9 +104,9 @@ end
 
 
 program define breduc, rclass
-syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [touse(varname) NOTable DISt LABel GRaph HIST options(string) RUBin]
+syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [touse(varname) NOTable DISt LABel GRaph HIST SCatter options(string) RUBin]
 
-	tempvar sumbias sumbias0 _bias0 _biasm xvar meanbiasbef medbiasbef meanbiasaft medbiasaft
+	tempvar sumbias sumbias0 _bias0 _biasm xvar meanbiasbef medbiasbef meanbiasaft medbiasaft _vratio_bef _vratio_aft
 	tempname Flowu Fhighu Flowm Fhighm
 
 	qui count if `treated'==1 & `touse'
@@ -111,6 +123,9 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 	qui g `sumbias' = .
 	qui g `sumbias0' = .
 
+	qui g `_vratio_bef' = .
+	qui g `_vratio_aft' = .
+
 	if "`notable'"!="" {
 		local quietly "quietly"
 	}
@@ -126,7 +141,7 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 	/* construct header */
 	local c = `vlength' + 4
 	local s = `vlength' - 22
-	if "`rubin'"!="" {
+	if ("`rubin'"!="" | "`scatter'"!="") {
 		local add "_e"
 	}
 	`quietly' di
@@ -201,7 +216,7 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 		local starbef ""
 		local staraft ""
 		
-		if "`rubin'"=="" {
+		if ("`rubin'"=="" & "`scatter'"=="") {
 			capture assert `v'==0 | `v'==1 | `v'==., fast
 			if (_rc) {
 				local cont_cnt = `cont_cnt' +1
@@ -219,7 +234,7 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 			}
 		}
 		
-		if "`rubin'"!="" {
+		if ("`rubin'"!="" | "`scatter'"!="") {
 			cap drop `resid1'
 			cap drop `resid0'
 			qui regress `v' `index0' if `treated'==1  & `touse'  
@@ -230,11 +245,12 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 			scalar `v_e_1' = r(Var)
 			qui sum `resid0'  
 			scalar `v_ratiobef' = `v_e_1'/r(Var)
+			qui replace `_vratio_bef' = `v_ratiobef' in `i'
 			if (`v_ratiobef'>1.25 & `v_ratiobef'<=2) | (`v_ratiobef'<0.8 & `v_ratiobef'>=0.5) {	  
 				local cnt_concbef = `cnt_concbef' +1
 				local starbef "*"
 			}
-			if `v_ratiobef'>2 | `v_ratiobef'<0.5 {	 
+			if (`v_ratiobef'>2 & `v_ratiobef'<.) | `v_ratiobef'<0.5 {	 
 				local cnt_badbef = `cnt_badbef' +1
 				local starbef "**"
 			}
@@ -248,11 +264,12 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 			scalar `v_e_1' = r(Var)
 			qui sum `resid0' [iw=`mweight'] 
 			scalar `v_ratioaft' = `v_e_1'/r(Var)
+			qui replace `_vratio_aft' = `v_ratioaft' in `i'
 			if (`v_ratioaft'>1.25 & `v_ratioaft'<=2) | (`v_ratioaft'<0.8 & `v_ratioaft'>=0.5) {	  
 				local cnt_concaft = `cnt_concaft' +1
 				local staraft "*"
 			}
-			if `v_ratioaft'>2 | `v_ratioaft'<0.5 {	 
+			if (`v_ratioaft'>2 & `v_ratioaft'<.) | `v_ratioaft'<0.5 {	 
 				local cnt_badaft = `cnt_badaft' +1
 				local staraft "**"
 			}
@@ -285,10 +302,10 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 		`quietly' di as text                                          _col(`=`c'-2') "   {c |}" as text _s(31) "   {c |}" as text _s(12) "   {c |}" 
 	}
 	`quietly' di as text "{hline `c'}{c BT}{hline 34}{c BT}{hline 15}{c BT}{hline 10}"
-	if "`rubin'"=="" {
+	if ("`rubin'"=="" & "`scatter'"=="") {
 		`quietly' di as text "* if variance ratio outside [" %4.2f `Flowu' "; " %4.2f `Fhighu' "] for U and ["  %4.2f `Flowm' "; " %4.2f `Fhighm' "] for M"
 	}
-	if "`rubin'"!="" {
+	if ("`rubin'"!="" | "`scatter'"!="") {
 		`quietly' di as text "*  if 'of concern', i.e. variance ratio in [0.5, 0.8) or (1.25, 2]"
 		`quietly' di "** if 'bad', i.e. variance ratio <0.5 or >2 "
 	}
@@ -347,7 +364,7 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 	if (`ibiasaft'>=25) local starBaft "*"
 	if !inrange(`iratioaft', 0.5, 2) local starRaft "*"
 
-	if ("`rubin'"=="") {
+	if ("`rubin'"=="" & "`scatter'"=="") {
 		di as text "{hline 11}{c TT}{hline 71}"
 		di as text " Sample    {c |} Ps R2   LR chi2   p>chi2   MeanBias   MedBias      B      R     %Var"
 		di as text "{hline 11}{c +}{hline 71}"
@@ -357,7 +374,7 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 		di as text "* if B>25%, R outside [0.5; 2]"
 	}
 
-	if ("`rubin'"!="") {
+	if ("`rubin'"!="" | "`scatter'"!="") {
 		di as text "{hline 11}{c TT}{hline 81}"
 		di as text " Sample    {c |} Ps R2   LR chi2   p>chi2   MeanBias   MedBias      B       R    %concern  %bad"
 		di as text "{hline 11}{c +}{hline 81}"
@@ -388,6 +405,18 @@ syntax varlist(min=1 fv), MWeight(varname) TReated(varname) SUPport(varname) [to
 		qui erase `graft'.gph
 	}
 
+	if ("`scatter'"!="") {
+		tempname grbef graft
+		qui sum `_bias0'
+		local bnd = round(max(-r(min), r(max)), 4)
+		local stp = `bnd'/4
+		qui scatter `_vratio_bef' `_bias0', xline(0, lw(medthick) lc(gs5)) yline(1, lw(medthick) lc(gs5)) yline(0.8 1.25, lp(dash) lw(medium) lc(gs5))  yline(0.5 2, lp(dot) lw(medium) lc(gs5)) xlab(-`bnd'(`stp')`bnd') ylab(0(0.5)2) ytitle("Variance ratio of residuals") xtitle("Standardized % bias") title("Unmatched") `options'  saving(`grbef'.gph , replace) nodraw
+		qui scatter `_vratio_aft' `_biasm', xline(0, lw(medthick) lc(gs5)) yline(1, lw(medthick) lc(gs5)) yline(0.8 1.25, lp(dash) lw(medium) lc(gs5))  yline(0.5 2, lp(dot) lw(medium) lc(gs5)) xlab(-`bnd'(`stp')`bnd') ylab(0(0.5)2) ytitle("Variance ratio of residuals") xtitle("Standardized % bias") title("Matched")   `options'  saving(`graft'.gph , replace) nodraw
+		qui graph combine `grbef'.gph `graft'.gph, xsize(6) ysize(7) col(1) scheme(s1mono) ycommon
+		qui erase `grbef'.gph
+		qui erase `graft'.gph
+	}
+
 	return local exog = "`varlist'"
 
 	
@@ -396,9 +425,9 @@ end
 /* ************************************************************************************************************************************* */
 
 program define breduc1, rclass
-syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varname) touse(varname) NOTable DISt LABel ONLYsig GRaph HIST options(string) RUBin]
+syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varname) touse(varname) NOTable DISt LABel ONLYsig GRaph HIST SCatter options(string) RUBin]
 
-	tempvar sumbias _bias xvar 
+	tempvar sumbias _bias xvar _vratio 
 	tempname Flow Fhigh
 
 	qui count if `treated'==1 & `support'==1 & `touse'
@@ -408,6 +437,7 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 	qui g `_bias' = .
 	qui g str12 `xvar' = ""
 	qui g `sumbias' = .
+	qui g `_vratio' =.
 
 	if "`notable'"!="" {
 		local quietly "quietly"
@@ -423,7 +453,7 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 	
 	/* construct header */
 	local c = `vlength' + 2
-	if "`rubin'"!="" {
+	if ("`rubin'"!="" | "`scatter'"!="") {
 		local add "_e"
 	}
 	
@@ -480,7 +510,7 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 		scalar `v_ratio' = .
 		local star ""
 		
-		if "`rubin'"=="" {
+		if ("`rubin'"=="" & "`scatter'"=="") {
 			capture assert `v'==0 | `v'==1 | `v'==., fast
 			if (_rc) {
 				local cont_cnt = `cont_cnt' +1
@@ -493,7 +523,7 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 			}
 		}
 		
-		if "`rubin'"!="" {
+		if ("`rubin'"!="" | "`scatter'"!="") {
 			cap drop `resid1'
 			cap drop `resid0'
 			qui regress `v' `index' [iw=`mweight'] if `treated'==1 & `support'==1 & `touse'
@@ -504,11 +534,12 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 			scalar `v_e_1' = r(Var)
 			qui sum `resid0' [iw=`mweight'] 
 			scalar `v_ratio' = `v_e_1'/r(Var)
+			qui replace `_vratio' = `v_ratio' in `i'
 			if (`v_ratio'>1.25 & `v_ratio'<=2) | (`v_ratio'<0.8 & `v_ratio'>=0.5) {	  
 				local cnt_conc = `cnt_conc' +1
 				local star "*"
 			}
-			if `v_ratio'>2 | `v_ratio'<0.5 {	 
+			if (`v_ratio'>2 & `v_ratio'<.) | `v_ratio'<0.5 {	 
 				local cnt_bad = `cnt_bad' +1
 				local star "**"
 			}
@@ -532,10 +563,10 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 		
 	}
 	`quietly' di as text "{hline `c'}{c BT}{hline 26}{c BT}{hline 15}{c BT}{hline 10}"
-	if "`rubin'"=="" {
+	if ("`rubin'"=="" & "`scatter'"=="") {
 		`quietly' di as text "* if variance ratio outside [" %4.2f `Flow' "; " %4.2f `Fhigh' "]"
 	}
-	if "`rubin'"!="" {
+	if ("`rubin'"!="" | "`scatter'"!="") {
 		`quietly' di as text "*  if 'of concern', i.e. variance ratio in [0.5, 0.8) or (1.25, 2]"
 		`quietly' di "** if 'bad', i.e. variance ratio <0.5 or >2 "
 	}
@@ -573,7 +604,7 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 	if !inrange(`iratio', 0.5, 2) local starR "*"
 
 	
-	if "`rubin'"=="" {
+	if ("`rubin'"=="" & "`scatter'"=="") {
 		di as text "{hline 70}"
 		di as text "Ps R2   LR chi2   p>chi2   MeanBias   MedBias      B       R     %Var "
 		di as text "{hline 70}"
@@ -582,7 +613,7 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 		di as text "* if B>25%, R outside [0.5; 2]"
 	}
 
-	if "`rubin'"!="" {
+	if ("`rubin'"!="" | "`scatter'"!="") {
 		di as text "{hline 81}"
 		di as text "Ps R2   LR chi2   p>chi2   MeanBias   MedBias      B       R    %concern   %bad"
 		di as text "{hline 81}"
@@ -602,6 +633,10 @@ syntax varlist(min=1 fv) , [ RAW MWeight(varname) TReated(varname) SUPport(varna
 
 	if "`hist'"!="" {
 		qui histogram `_bias', xtitle("Standardized % bias across covariates") `options'  
+	}
+
+	if ("`scatter'"!="") {
+		qui scatter `_vratio' `_bias', xline(0, lw(medthick) lc(gs5)) yline(1, lw(medthick) lc(gs5)) yline(0.8 1.25, lp(dash) lw(medium) lc(gs5))  yline(0.5 2, lp(dot) lw(medium) lc(gs5)) ylab(0(0.5)2) ytitle("Variance ratio of residuals") xtitle("Standardized % bias")  `options'  
 	}
 
 	return local exog = "`varlist'"
@@ -663,3 +698,4 @@ syntax varname, [RAW BOTH MWeight(varname) TReated(varname) SUPport(varname) tou
 end
 
 
+		
