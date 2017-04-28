@@ -1,4 +1,4 @@
-*! version 4.2.1 19jan2015 E. Leuven, B. Sianesi
+*! version 4.2.2 25apr2017 E. Leuven, B. Sianesi
 program define pstest
 	version 11.0
 	#delimit ;
@@ -71,15 +71,16 @@ program define pstest
 		qui g double `treated' = _treated
 	}
 
+	tempvar weight
 	if ("`mweight'"=="") {
-		tempvar mweight
-		if ("`raw'"!="") qui g double `mweight' = 1
+		if ("`raw'"!="") qui g double `weight' = 1
 		else {
 			capture confirm var _weight
-			if (!_rc) qui g double `mweight' = _weight
+			if (!_rc) qui g double `weight' = _weight
 			else di as error "Error: provide weight"
 		}
 	}
+	else g double `weight' = `mweight'
 	
 	if ("`support'"=="") {
 		tempvar support
@@ -88,16 +89,16 @@ program define pstest
 		else qui g byte `support'= _support
 	}
 
-	qui replace  `mweight' = `support' if cond("`atu'" == "", `treated'==1, `treated'==0)
+	qui replace  `weight' = `support' if cond("`atu'" == "", `treated'==1, `treated'==0)
 
 	if ("`density'"=="" & "`box'"=="" & "`both'"!="") {
-		breduc  `varlist' , touse(`touse') mw(`mweight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' `scatter' options("`options'") `rubin'
+		breduc  `varlist' , touse(`touse') mw(`weight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' `scatter' options("`options'") `rubin'
 	}
 	if ("`density'"=="" & "`box'"=="" & "`both'"=="") {
-		breduc1 `varlist' , touse(`touse') mw(`mweight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' `scatter' options("`options'") `rubin' `onlysig' `raw'
+		breduc1 `varlist' , touse(`touse') mw(`weight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' `scatter' options("`options'") `rubin' `onlysig' `raw'
 	}
 	if ("`density'"!="" | "`box'"!="") {
-		plotvar `varlist' , touse(`touse') `raw' `both' mw(`mweight') tr(`treated') sup(`support') `density' `box' `outlier' options("`options'") 
+		plotvar `varlist' , touse(`touse') `raw' `both' mw(`weight') tr(`treated') sup(`support') `density' `box' `outlier' options("`options'") 
 	}
 	
 end
