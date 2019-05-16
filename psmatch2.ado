@@ -1,4 +1,4 @@
-*! version 4.0.11 22oct2014 E. Leuven, B. Sianesi
+*! version 4.0.12 30jan2016 E. Leuven, B. Sianesi
 program define psmatch2, sortpreserve
 	version 11.0
 	#delimit ;
@@ -25,7 +25,7 @@ program define psmatch2, sortpreserve
 	QUIetly
 	NOREPLacement
 	DESCending
-	NOWARNings
+	WARNings
 	ATE
 	W(string)
 	SPLINE
@@ -172,7 +172,7 @@ program define psmatch2, sortpreserve
 		qui _Support_ `pscore', level(`trim') `ate'
 	}
 
-	// do nearest neighbor if llr with epanechnikov
+	// do nearest neighbor if llr with tricube
 	if ("`method'"=="llr" & "`kerneltype'"=="epan" & "`metric'"=="pscore") {
 		local method "neighbor"
 		if ("`bwidth'"!="") {
@@ -242,7 +242,7 @@ program define psmatch2, sortpreserve
 	}
 
 	// check for duplicate pscores
-	if ("`nowarnings'"=="" & "`metric'"=="pscore") {
+	if ("`warnings'"!="" & "`metric'"=="pscore") {
 		sort _treated _pscore
 		cap by _treated _pscore: assert _N==1 if _treated==0 & _support==1
 		if (!_rc & "`ate'"!="") {
@@ -302,6 +302,31 @@ program define psmatch2, sortpreserve
 		local matchon `mahalanobis'
 	}
 	else local matchon `pscore'
+	
+	/*
+Your -st_addvar()- specification actually creates a variable of type
+float. It is just that the variable index is not what you expected. The
+problem is this: if there are estimation results stored in -e()- that
+contain the -e(sample)- macro, there will be a hidden variable in the
+dataset that stores an indicator (of type byte) that indicates the
+estimation sample. After an estimation command terminates, this hidden
+variable is stored at the last position of the dataset. Now, what
+happened prior to Stata 15 is that using -st_addvar()- could enable
+users to create new variables after the -e(sample)- variable and that
+caused a number of problems in different contexts. In Stata 15, we made
+a change to this behavior such that whenever a new view is created, the
+-e(sample)- variable is automatically being moved to the end of the
+dataset. In your case, this new behavior has the unfortunate side effect
+that the index you are creating for the new temporary variable is now
+referring to the estimation sample indicator instead of your new
+variable (hence -st_vartype()- returns -byte- instead of -float-). 
+
+I think the most straightforward workaround to this would be to do a
+-ereturn clear- once you have grabbed the -e()- results you need prior
+to performing the matching. In that case there would be no -e(sample)-
+variable in the dataset and everything should work like before.
+		*/
+	ereturn clear
 
 	if ("`method'"=="neighbor" ) {
 		qui count if _treated<=1 & _support==1
@@ -649,7 +674,6 @@ program define _Kernel_
 end
 
 
-version 9.0
 mata:
 
 // calculates x'Wx used by mahalanobis metric, needs to be done only once
@@ -785,6 +809,7 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	forward = 1
 	i = i0
 	jmatch = j0
+	m=1
 	while (i<=i1 && (jmatch>=j0 && jmatch<=j1)) {
 		if (i==j0) ++jmatch
 		if (i==jmatch) --jmatch
@@ -818,7 +843,6 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 				if (nout>0) MOUTVAR[i,.] = MOUTVAR[i,.] + OUTVAR[obs,.]:/nmatch
 			}
 			if (i0 != j0) NN[i] = nmatch
-
 			// estimate conditional variance following Abadie et al. (2004, p.303)
 			if (altvar && i0 == j0) {
 				m = (nmatch :* MOUTVAR[i,.] + OUTVAR[i,.]) :/ (nmatch + 1)
@@ -829,8 +853,9 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 				MOUTVAR[i,.] = MOUTVAR[i,.] :/ nmatch
 			}
 
-			
+
 		} else if (i0 != j0) SUPPORT[i] = 0
+	
 		if (jmatch==j1 && i<i1) forward = 0
 		if (noreplace==1 && nmatch>0) {
 			jmatch = next_unmatched(i, jmatch, forward, noreplace, idx_ismatch)
