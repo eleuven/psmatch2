@@ -136,6 +136,18 @@ program define psmatch2, sortpreserve
 		qui predict double `pscore', `index'
 		qui g double _pscore = `pscore' if `touse'
 		label var _pscore "psmatch2: Propensity Score"
+		tempname Vgamma
+		matrix `Vgamma' = e(V)
+		local Xnames : colnames e(V)
+		tempname dP
+		if ("`logit'"=="") {
+			g double `dP' = _psore * (1 - _pscore)
+		}
+		else {
+			tempname score
+			predict double `score', index
+			g double `dP' = normalden(`score')
+		}
 	}
 	else if ("`metric'"=="pscore") {
 		qui g double _pscore = `pscore' 
@@ -318,9 +330,11 @@ program define psmatch2, sortpreserve
 		else local noreplace 0
 
 		if ("`ate'"!="") {
+			// match controls to treated
 			mata : match_`metric'(1, `N0', `=`N0'+1', `N', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'")
 			qui replace _support = 0 if _n1>=. & _treated==0
 		}
+		// match treated to controls
 		mata : match_`metric'(`=`N0'+1', `N', 1, `N0', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'")
 		qui replace _support = 0 if _n1>=. & _treated==1
 
@@ -765,6 +779,13 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	st_view(NN=., ., "_nn")
 	st_view(ID=., ., "_id")
 
+	st_view(X=., ., st_local("Xnames"))
+	st_view(dP=., ., st_local("dP"))
+	Vgamma = st_matrix(st_local("Vgamma"))
+
+	vadj1 = 0
+	vadj0 = 0
+
 	altvar = (st_local("altvariance") != "")
 
 	idx_idlist = st_addvar("float", st_tempname())
@@ -825,6 +846,7 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 					MOUTVAR[i,.] = MOUTVAR[i,.] + (OUTVAR[IDLIST[k],.] - m)^2
 				}
 				MOUTVAR[i,.] = MOUTVAR[i,.] :/ nmatch
+				// additional PS correction
 			}
 
 
