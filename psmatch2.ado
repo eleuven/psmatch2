@@ -302,31 +302,6 @@ program define psmatch2, sortpreserve
 		local matchon `mahalanobis'
 	}
 	else local matchon `pscore'
-	
-	/*
-Your -st_addvar()- specification actually creates a variable of type
-float. It is just that the variable index is not what you expected. The
-problem is this: if there are estimation results stored in -e()- that
-contain the -e(sample)- macro, there will be a hidden variable in the
-dataset that stores an indicator (of type byte) that indicates the
-estimation sample. After an estimation command terminates, this hidden
-variable is stored at the last position of the dataset. Now, what
-happened prior to Stata 15 is that using -st_addvar()- could enable
-users to create new variables after the -e(sample)- variable and that
-caused a number of problems in different contexts. In Stata 15, we made
-a change to this behavior such that whenever a new view is created, the
--e(sample)- variable is automatically being moved to the end of the
-dataset. In your case, this new behavior has the unfortunate side effect
-that the index you are creating for the new temporary variable is now
-referring to the estimation sample indicator instead of your new
-variable (hence -st_vartype()- returns -byte- instead of -float-). 
-
-I think the most straightforward workaround to this would be to do a
--ereturn clear- once you have grabbed the -e()- results you need prior
-to performing the matching. In that case there would be no -e(sample)-
-variable in the dataset and everything should work like before.
-		*/
-	ereturn clear
 
 	if ("`method'"=="neighbor" ) {
 		qui count if _treated<=1 & _support==1
@@ -809,7 +784,6 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	forward = 1
 	i = i0
 	jmatch = j0
-	m=1
 	while (i<=i1 && (jmatch>=j0 && jmatch<=j1)) {
 		if (i==j0) ++jmatch
 		if (i==jmatch) --jmatch
