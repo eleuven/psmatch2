@@ -22,9 +22,10 @@ help for {hi:pstest}
 	{cmdab:lab:el}
 	{cmdab:only:sig}
 	{cmdab:dis:t}
+	{cmd:atu}
 	{cmdab:gr:aph}
 	{cmd:hist}
-	{cmd:atu}
+	{cmdab:sc:atter}
 	{it:graph_options} {cmd:]}
 
 {p 8 21 2}where {it:varlist} may contain factor variables; see {cmd:fvvarlist}.
@@ -117,7 +118,9 @@ Rubin (2001) recommends that B be less than 25 and that R be between 0.5 and 2 f
 An asterisk is displayed next to B and R values that fall outside those limits.
 
 {p 4 4 2}Optionally {cmd:pstest} graphs the extent of covariate imbalance in terms of standardised
-percentage differences using dot charts (option {cmd:graph}) or histograms (option {cmd:hist}).
+percentage differences using dot charts (option {cmd:graph}) or histograms (option {cmd:hist}).	Alternatively, option {cmd:scatter}
+draws a scatterplot of the standardised differences vs Rubin's residual variance ratios, offering an at-a-glance picture of covariate
+imbalance in terms of these two indicators.
 
 {p 4 4 2}One only need type {cmd:pstest[, both]} directly after {cmd:psmatch2} to inspect the extent of covariate balancing
 in matched samples if {cmd:psmatch2} has been called with a {it:varlist}.
@@ -176,9 +179,10 @@ more non-treated are used to calculate the counterfactual outcome than the neare
 	{cmdab:dis:t}
 	{cmdab:lab:el}
 	{cmdab:only:sig}
-	{cmdab:gr:aph}
 	{cmd:atu}
+	{cmdab:gr:aph}
 	{cmd:hist}
+	{cmdab:sc:atter}
 	{it:graph_options} {cmd:]}
 
 {p 8 21 2}{cmdab:pstest}
@@ -213,6 +217,7 @@ more non-treated are used to calculate the counterfactual outcome than the neare
 	{cmdab:only:sig}
 	{cmdab:gr:aph}
 	{cmd:hist}
+	{cmdab:sc:atter}
 	{it:graph_options} {cmd:]}
 
 {p 8 21 2}{cmdab:pstest}
@@ -244,9 +249,10 @@ more non-treated are used to calculate the counterfactual outcome than the neare
 	{cmdab:not:able}
 	{cmdab:dis:t}
 	{cmdab:lab:el}
+	{cmd:atu}
 	{cmdab:gr:aph}
 	{cmd:hist}
-	{cmd:atu}
+	{cmdab:sc:atter}
 	{it:graph_options} {cmd:]}
 
 {p 8 21 2}{cmdab:pstest}
@@ -305,8 +311,15 @@ standardised percentage bias for each covariate. If option {cmd:both} is specifi
 before and after matching is displayed in the same dot chart. If more than 30 covariates are specified, they are not labelled.  
 
 {p 4 8 2}{cmdab:hist} Display a graphical summary of covariate imbalance via a histogram,
-showing the distribution of the standardised percentage bias across covariates. If option {cmd:both} is specified, imbalance before and after matching is displayed in two histograms. Recommended for a large number of covariates.
+showing the distribution of the standardised percentage bias across covariates. If option {cmd:both} is specified,
+imbalance before and after matching is displayed in two histograms forced to have the same x-axis. Recommended for a large number of covariates.
 
+{p 4 8 2}{cmdab:sc:atter} Display a graphical summary of covariate imbalance via a scatter plot of
+standardised percentage bias vs residual variance ratio. If option {cmd:both} is specified,
+imbalance before and after matching is displayed in two scatterplots forced to have the same x-axis.
+Note that specifying {cmd:scatter} implicitly specifies {cmd:rubin}, so that information on Rubin's (2001) ratio of the variance of the
+covariates orthogonal to the propensity score is displayed in the tables. 
+  
 {p 4 8 2}{it:graph_options} Additional options can be specified for the relevant graph type
 (dot graph or histogram). Useful examples are {cmd:saving}{cmd:(}{it:filename}{cmd:[, replace]}{cmd:)}; {cmd:yscale(range(}{it:numlist}{cmd:))},
 {cmd:ylabel(}{it:numlist}{cmd:))} or {cmd:legend(off)} for dot graphs; and {cmd:bin(}#{cmd:)} for histograms.
@@ -333,7 +346,7 @@ Do NOT contain the title in quotes, e.g. a title could be: title(Kernel density 
 {title:Examples}
 
     {inp: . pstest age gender foreign exper, t(training) mw(_weight) onlysig graph}
-    {inp: . pstest foreign##c.age married##c.exper if district==1, raw t(male) label hist}
+    {inp: . pstest foreign##c.age married##c.exper if district==1, raw t(male) label scatter}
 	
     {inp: . psmatch2 treated age gender foreign exper, outcome(wage) ate}
     {inp: . pstest}

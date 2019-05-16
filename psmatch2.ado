@@ -1,4 +1,4 @@
-*! version 4.0.11 22oct2014 E. Leuven, B. Sianesi
+*! version 4.0.12 30jan2016 E. Leuven, B. Sianesi
 program define psmatch2, sortpreserve
 	version 11.0
 	#delimit ;
@@ -25,7 +25,7 @@ program define psmatch2, sortpreserve
 	QUIetly
 	NOREPLacement
 	DESCending
-	NOWARNings
+	WARNings
 	ATE
 	W(string)
 	SPLINE
@@ -172,7 +172,7 @@ program define psmatch2, sortpreserve
 		qui _Support_ `pscore', level(`trim') `ate'
 	}
 
-	// do nearest neighbor if llr with epanechnikov
+	// do nearest neighbor if llr with tricube
 	if ("`method'"=="llr" & "`kerneltype'"=="epan" & "`metric'"=="pscore") {
 		local method "neighbor"
 		if ("`bwidth'"!="") {
@@ -242,7 +242,7 @@ program define psmatch2, sortpreserve
 	}
 
 	// check for duplicate pscores
-	if ("`nowarnings'"=="" & "`metric'"=="pscore") {
+	if ("`warnings'"!="" & "`metric'"=="pscore") {
 		sort _treated _pscore
 		cap by _treated _pscore: assert _N==1 if _treated==0 & _support==1
 		if (!_rc & "`ate'"!="") {
@@ -649,7 +649,6 @@ program define _Kernel_
 end
 
 
-version 9.0
 mata:
 
 // calculates x'Wx used by mahalanobis metric, needs to be done only once
@@ -818,7 +817,6 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 				if (nout>0) MOUTVAR[i,.] = MOUTVAR[i,.] + OUTVAR[obs,.]:/nmatch
 			}
 			if (i0 != j0) NN[i] = nmatch
-
 			// estimate conditional variance following Abadie et al. (2004, p.303)
 			if (altvar && i0 == j0) {
 				m = (nmatch :* MOUTVAR[i,.] + OUTVAR[i,.]) :/ (nmatch + 1)
@@ -829,8 +827,9 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 				MOUTVAR[i,.] = MOUTVAR[i,.] :/ nmatch
 			}
 
-			
+
 		} else if (i0 != j0) SUPPORT[i] = 0
+	
 		if (jmatch==j1 && i<i1) forward = 0
 		if (noreplace==1 && nmatch>0) {
 			jmatch = next_unmatched(i, jmatch, forward, noreplace, idx_ismatch)

@@ -134,20 +134,16 @@ for all the treated:
 
 {title:Matching within strata}
 
-{pstd} The following code illustrates how to match within exact cells and then calculate different average effects.
+{pstd} The following code illustrates how to match within exact cells and then calculate the average effect for the whole population.
 
 	{cmd:g att = .}
-	{cmd:g atu = .}
-	{cmd:g ate = .}
 	{cmd:egen g = group(groupvars)}
 	{cmd:levels g, local(gr)}
 	{cmd:qui foreach j of local gr {c -(}}
-		{cmd:psmatch2 treatvar varlist if g==`j', out(outvar) ate}
-		{cmd:replace att = r(att) if  g==`j' & _treated==1}
-		{cmd:replace atu = r(atu) if  g==`j' & _treated==0}
-		{cmd:replace ate = r(ate) if  g==`j'}
+		{cmd:psmatch2 treatvar varlist if g==`j', out(outvar)}
+		{cmd:replace att = r(att) if  g==`j'}
 	{cmd:{c )-}}
-	{cmd:sum att atu ate}
+	{cmd:sum att}
 
 {title:Detailed Syntax}
 
@@ -173,7 +169,7 @@ for all the treated:
     {cmd:index}
     {cmd:logit}
     {cmd:ties}
-    {cmdab:nowarn:ings}
+    {cmdab:warn:ings}
     {cmdab:qui:etly}
     {cmd:ate}]
 
@@ -197,7 +193,7 @@ for all the treated:
     {cmd:index}
     {cmd:logit}
     {cmd:ties}
-    {cmdab:nowarn:ings}
+    {cmdab:warn:ings}
     {cmdab:qui:etly}
     {cmd:ate}]
 
@@ -292,7 +288,7 @@ for all the treated:
     {cmd:index}
     {cmd:logit}
     {cmd:ties}
-    {cmdab:nowarn:ings}
+    {cmdab:warn:ings}
     {cmdab:qui:etly}
     {cmd:ate}]
 
@@ -336,8 +332,8 @@ and 0 if the observatio is off the support.
 {pmore}
 {inp:_weight}. For nearest neighbor matching, it holds the frequency with which the
 observation is used as a match; with option {cmd:ties} and k-nearest neighbors matching it holds
-the normalized weight; for kernel matching, and llr matching with a kernel other than
-Epanenchnikov, it stores the overall weight given to the matched observation. When estimating att only
+the normalized weight; for kernel matching, and llr matching with a weight other than
+stata's tricube, it stores the overall weight given to the matched observation. When estimating att only
 _weight = 1 for the treated.
 
 {pmore}
@@ -412,7 +408,7 @@ In this case:
 {cmd:index} use the latent variable index instead of the probability.
 
 {phang}
-{cmdab:nowarn:ings} do not test for control observations with duplicate propensity score values.
+{cmdab:warn:ings} test for control observations with duplicate propensity score values.
 
 
 {title:Options: Imposition of common support}
