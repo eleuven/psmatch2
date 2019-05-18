@@ -332,7 +332,7 @@ program define psmatch2, sortpreserve
 		else local noreplace 0
 
 		// match to controls
-		qui foreach nvar in s01 s11 K1 Kp1 adj11 adj21 {
+		qui foreach nvar in shat K Kp adj1 adj2 {
 			tempvar `nvar'
 			g double ``nvar'' = .
 			local vcomponents1 `vcomponents1' ``nvar''
@@ -342,16 +342,9 @@ program define psmatch2, sortpreserve
 		// for variance
 		mata : match_`metric'(1, `N0', 1, `N0', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
 		mata : match_`metric'(`=`N0' + 1', `N', `=`N0' + 1', `N', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
-		tempvar shat
-		qui g double `shat' = cond(_treated, `s11', `s01')
 
 		if ("`ate'"!="") {
-			qui foreach nvar in s00 s10 K0 Kp0 adj10 adj20 {
-				tempvar `nvar'
-				g double ``nvar'' = .
-				local vcomponents0 `vcomponents0' ``nvar''
-			}
-			// match to treated
+			// match controls to treated
 			mata : match_`metric'(1, `N0', `=`N0' + 1', `N', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents0")
 			qui replace _support = 0 if _n1>=. & _treated==0
 		}
@@ -723,10 +716,11 @@ void match_mahalanobis(real scalar t0, real scalar t1, real scalar c0, real scal
 			WEIGHT[smallest] = 1 / nmatch
 			if (nout > 0) MOUTVAR[i,.] = MOUTVAR[i,.] + mean(OUTVAR[smallest,.])
 		}
-		// estimate conditional variance following Abadie et al. (2004, p.303)
-		smallest = i0 == j0 ? i \ smallest : smallest
-		Ym = OUTVAR[smallest, .]
-		Vc[i, (t0==1 ? 1 : 2)] = sum((Ym :- mean(Ym)):^2)  / nmatch
+		else {
+			// estimate conditional variance following Abadie et al. (2004, p.303)
+			Ym = OUTVAR[(i \ smallest), .]
+			Vc[i, 1] = sum((Ym :- mean(Ym)):^2)  / nmatch			
+		}
 
 	}
 
@@ -836,17 +830,16 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 				WEIGHT[idx, .] = WEIGHT[idx, .] + J(nmatch, 1, 1 / nmatch)
 				MOUTVAR[i, .] = mean(OUTVAR[idx,.])
 			}
+			else {
+				// Abadie et al. (2004, p.303)
+				Ym = OUTVAR[(i \ idx), .]
+				Vc[i, (i0==1 ? 1 : 2)] = sum((Ym :- mean(Ym)):^2) / nmatch
 
-			// Abadie et al. (2004, p.303)
-			//idx = i0 == j0 ? i \ idx : idx
-			idx = i \ idx
-			Ym = OUTVAR[idx, .]
-			Vc[i, (i0==1 ? 1 : 2)] = sum((Ym :- mean(Ym)):^2) / nmatch
-
-			// additional PS correction, Abadie & Imbens (2016)
-			//x = cross(X[idx, .] :- mean(X[idx,.]), 1, dP[idx, .], OUTVAR[idx, .] :- m, 0) / nmatch
-			//x = x'*Vgamma*x
-			//x
+				// additional PS correction, Abadie & Imbens (2016)
+				//x = cross(X[idx, .] :- mean(X[idx,.]), 1, dP[idx, .], OUTVAR[idx, .] :- m, 0) / nmatch
+				//x = x'*Vgamma*x
+				//x				
+			}
 
 
 		} else if (i0 != j0) SUPPORT[i] = 0
