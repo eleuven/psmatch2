@@ -6,6 +6,7 @@ program define psmatch2, sortpreserve
 	OUTcome(varlist)
 	Pscore(varname)
 	Neighbor(integer 1)
+	AI(integer 1)
 	TIES
 	RADIUS
 	CALiper(real 0)
@@ -15,7 +16,6 @@ program define psmatch2, sortpreserve
 	Kerneltype(string)
 	BWidth(string)
 	COMmon
-	AI(integer 0)
 	POPulation
 	ALTVariance
 	TRIM(real 100)
@@ -331,20 +331,20 @@ program define psmatch2, sortpreserve
 		if ("`noreplacement'"!="") local noreplace 1
 		else local noreplace 0
 
-		// match to controls
+		// match treated
+		mata : match_`metric'(`=`N0' + 1', `N', 1, `N0', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
+		qui replace _support = 0 if _n1>=. & _treated==1
+		// for variance
 		qui foreach nvar in shat K Kp adj1 adj2 {
 			tempvar `nvar'
 			g double ``nvar'' = .
 			local vcomponents1 `vcomponents1' ``nvar''
 		}
-		mata : match_`metric'(`=`N0' + 1', `N', 1, `N0', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
-		qui replace _support = 0 if _n1>=. & _treated==1
-		// for variance
 		mata : match_`metric'(1, `N0', 1, `N0', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
 		mata : match_`metric'(`=`N0' + 1', `N', `=`N0' + 1', `N', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
 
 		if ("`ate'"!="") {
-			// match controls to treated
+			// match controls
 			mata : match_`metric'(1, `N0', `=`N0' + 1', `N', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents0")
 			qui replace _support = 0 if _n1>=. & _treated==0
 		}
