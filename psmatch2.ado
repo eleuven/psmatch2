@@ -138,7 +138,9 @@ program define psmatch2, sortpreserve
 		label var _pscore "psmatch2: Propensity Score"
 		tempname Vgamma
 		matrix `Vgamma' = e(V)
+		local constant _cons
 		local Xnames : colnames e(V)
+		local Xnames : list Xnames - constant
 		tempname dP
 		if ("`logit'"=="") {
 			g double `dP' = _psore * (1 - _pscore)
@@ -329,34 +331,36 @@ program define psmatch2, sortpreserve
 		if ("`noreplacement'"!="") local noreplace 1
 		else local noreplace 0
 
+		// match to controls
+		qui foreach nvar in s01 s11 K1 Kp1 adj11 adj21 {
+			tempvar `nvar'
+			g double ``nvar'' = .
+			local vcomponents1 `vcomponents1' ``nvar''
+		}
+		mata : match_`metric'(`=`N0' + 1', `N', 1, `N0', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
+		qui replace _support = 0 if _n1>=. & _treated==1
+		// for variance
+		mata : match_`metric'(1, `N0', 1, `N0', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
+		mata : match_`metric'(`=`N0' + 1', `N', `=`N0' + 1', `N', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents1")
+		tempvar shat
+		qui g double `shat' = cond(_treated, `s11', `s01')
+
 		if ("`ate'"!="") {
-			// match controls to treated
-			mata : match_`metric'(1, `N0', `=`N0'+1', `N', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'")
+			qui foreach nvar in s00 s10 K0 Kp0 adj10 adj20 {
+				tempvar `nvar'
+				g double ``nvar'' = .
+				local vcomponents0 `vcomponents0' ``nvar''
+			}
+			// match to treated
+			mata : match_`metric'(1, `N0', `=`N0' + 1', `N', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'", "vcomponents0")
 			qui replace _support = 0 if _n1>=. & _treated==0
 		}
-		// match treated to controls
-		mata : match_`metric'(`=`N0'+1', `N', 1, `N0', `neighbor', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`moutvar'", "`ate'")
-		qui replace _support = 0 if _n1>=. & _treated==1
+
 
 		// difference pscore between treat obs and nearest match
 		if ("`metric'"=="pscore") {
 			qui g double _pdif = abs(_pscore - _pscore[_n1])
 			label var _pdif "psmatch2: abs(pscore - pscore[nearest neighbor])"
-		}
-		if (`ai' > 0) {
-			// outcome of matches, treated to treated, controls to controls
-			if ("`outcome'"!="") {
-				foreach v of varlist `outcome'	 {
-					cap drop _self_`v'
-					qui g double _self_`v' = 0 if _support==1
-					label var _self_`v' "psmatch2: matched value of `v' (T-T & C-C)"
-					local soutvar `soutvar' _self_`v'
-				}
-			}
-			// match controls to controls
-			mata : match_`metric'(1, `N0', 1, `N0', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`soutvar'", "`ate'")
-			// match treated to treated
-			mata : match_`metric'(`=`N0' + 1', `N', `=`N0' + 1', `N', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`soutvar'", "`ate'")
 		}
 	}
 	else { // llr and kernel
@@ -367,7 +371,7 @@ program define psmatch2, sortpreserve
 	qui replace _weight = . if _weight==0 | _support==0
 
 	// generate output
-	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') `population' `altvariance' exog(`varlist')
+	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') `population' `altvariance' exog(`varlist') shat(`shat')
 
 	// get rid of evil global
 	macro drop OUTVAR
@@ -377,7 +381,7 @@ end
 
 // FORMAT OUTPUT TABLE
 program define _mktab, rclass
-syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) Neighbor(integer 1) population altvariance exog(varlist fv)]
+syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) Neighbor(integer 1) population altvariance exog(varlist fv) shat(varname)]
 
 // return model info
 if ("`exog'"!="") return local exog = "`exog'"
@@ -414,7 +418,7 @@ qui foreach v of varlist `varlist' {
 	scalar `m0t' = r(mean)
 	scalar `att' = `m1t' - `m0t'
 
-	if ("`ate'"!="") {
+	if ("`ate'" != "") {
 		sum _`v' if _treated==0 & _support==1, mean
 		scalar `m1u' = r(mean)
 		sum `v' if _treated==0 & _support==1, mean
@@ -425,10 +429,10 @@ qui foreach v of varlist `varlist' {
 	}
 
 	if (`ai' != 0) {
-		tempvar VhatE VhatEt VhatEu shat w
+		tempvar VhatE VhatEt VhatEu w
 		g `w' = max(_weight, 0)
 		// AI (2006, eq14 p. 250), or Aetal (2004, p303)
-		g `shat' = cond("`altvariance'" == "", (`ai' / (`ai' + 1)) * (`v' - _self_`v')^2, _self_`v')
+		//g `shat' = cond("`altvariance'" == "", (`ai' / (`ai' + 1)) * (`v' - _self_`v')^2, _self_`v')
 		if ("`population'" == "") { // AI. p.245-246
 			g `VhatEt' = `shat' * (_treated - (1 - _treated) * `w')^2
 			if ("`ate'" != "") {
@@ -446,7 +450,7 @@ qui foreach v of varlist `varlist' {
 					+ (`w'^2 + 2 * `w' - `w' / `neighbor') * `shat'
 				}
 		}
-		sum `VhatEt' if _support==1, mean
+		su `VhatEt' if _support==1, mean
 		scalar `seatt' = sqrt(r(sum)) / `N1'
 		if ("`ate'"!="") {
 			sum `VhatEu' if _support==1, mean
@@ -680,7 +684,7 @@ real scalar _Dif_mbase(string xvars, string base, string wmatrix)
 
 void match_mahalanobis(real scalar t0, real scalar t1, real scalar c0, real scalar c1, 
 	real scalar neighbors, real scalar caliper, real scalar noreplace, real scalar ties, 
-	string wmatrix, string xvars, string n1, string outvar, string moutvar, string ate)
+	string wmatrix, string xvars, string n1, string outvar, string moutvar, string ate, string vc)
 {
 	real scalar obs, nout, nmatch, self
 	real matrix W, dist, smallest, dist2
@@ -700,38 +704,30 @@ void match_mahalanobis(real scalar t0, real scalar t1, real scalar c0, real scal
 		st_view(MOUTVAR=., ., tokens(moutvar))
 	}
 
+	st_view(Vc=., ., st_local(vc)) // variance components
+
 	id = st_data(.,"_id")   // we want a copy
 	W = st_matrix(wmatrix)
 	
 	for (i = t0; i<=t1; ++i) {
-		if (t0 == c0 && ate=="" && WEIGHT[i]==0) continue
+		//if (t0 == c0 && ate=="" && WEIGHT[i]==0) continue
 		dist = XWX[c0..c1] - 2*X[c0..c1,.]*(W*X[i,.]') :+ XWX[i]
 		dist = dist, id[c0..c1]
 		if (t0 == c0) dist = select(dist, dist[.,2]:!=i)
 		smallest = kth_smallest(dist, neighbors, caliper)
 		nmatch = rows(smallest)
-		if (t0 != c0) NN[i] = nmatch
-		for (k = 1; k<=nmatch; ++k) {
-			obs = smallest[k]
-			if (t0 != c0) {
-				N1[i, k] = obs
-				WEIGHT[obs] = WEIGHT[obs] + 1 / neighbors
-			}
-			if (nout > 0) {
-				MOUTVAR[i,.] = MOUTVAR[i,.] + OUTVAR[obs,.] :/ nmatch
-			}
+		if (t0 != c0) {
+			if (nmatch < 1) SUPPORT[i] = 0
+			NN[i] = nmatch
+			N1[i, .] = smallest'
+			WEIGHT[smallest] = 1 / nmatch
+			if (nout > 0) MOUTVAR[i,.] = MOUTVAR[i,.] + mean(OUTVAR[smallest,.])
 		}
 		// estimate conditional variance following Abadie et al. (2004, p.303)
-		if (altvar && t0 == c0) {
-			m = (nmatch :* MOUTVAR[i,.] + OUTVAR[i,.]) :/ (nmatch + 1)
-			MOUTVAR[i,.] = (OUTVAR[i,.] - m)^2
-			for (k = 1; k <= nmatch; ++k) {
-				MOUTVAR[i,.] = MOUTVAR[i,.] + (OUTVAR[smallest[k],.] - m)^2
-			}
-			MOUTVAR[i,.] = MOUTVAR[i,.] :/ nmatch
-		}
+		smallest = i0 == j0 ? i \ smallest : smallest
+		Ym = OUTVAR[smallest, .]
+		Vc[i, (t0==1 ? 1 : 2)] = sum((Ym :- mean(Ym)):^2)  / nmatch
 
-		if (nmatch < 1 && t0 != c0) SUPPORT[i] = 0
 	}
 
 } // end of match_mahal
@@ -767,7 +763,7 @@ real matrix kth_smallest(real matrix a, real scalar k, real scalar caliper)
 
 void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1, 
 	real scalar neighbors, real scalar caliper, real scalar noreplace, real scalar ties, 
-	string wmatrix, string xvars, string n1, string outvar, string moutvar, string ate)
+	string wmatrix, string xvars, string n1, string outvar, string moutvar, string ate, string vc)
 {
 	real scalar dif0, dif1, obs, i, jmatch, j, k, nmatch, nout, forward, idx_idlist, idx_ismatch
 
@@ -779,6 +775,7 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	st_view(NN=., ., "_nn")
 	st_view(ID=., ., "_id")
 
+	st_view(Vc=., ., st_local(vc)) // variance components
 	st_view(X=., ., st_local("Xnames"))
 	st_view(dP=., ., st_local("dP"))
 	Vgamma = st_matrix(st_local("Vgamma"))
@@ -806,10 +803,12 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	i = i0
 	jmatch = j0
 	while (i<=i1 && (jmatch>=j0 && jmatch<=j1)) {
+
 		if (i==j0) ++jmatch
 		if (i==jmatch) --jmatch
 		j = jmatch
 		dif1 = abs(PSCORE[i] - PSCORE[j])
+
 		while (j>=j0 && j<j1) {
 			j = next_unmatched(i, j, forward, noreplace, idx_ismatch)
 			if (j<j0 || j>j1) break
@@ -820,34 +819,34 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 		}
 		// update match and match-ID variables
 		if (abs(PSCORE[i] - PSCORE[jmatch]) < caliper) {
+
 			ISMATCH[jmatch] = 1
 			++nmatch
 			IDLIST[nmatch] = ID[jmatch]
-			if (ties>0) {       // match remaining ties
-				nmatch = match_ties(i, jmatch, j0, j1, nmatch, forward, noreplace, idx_idlist, idx_ismatch)
+			// match remaining ties
+			if (ties>0) nmatch = match_ties(i, jmatch, j0, j1, nmatch, forward, noreplace, idx_idlist, idx_ismatch)
+			// match remaining neighbors (1-to-many)
+			if (neighbors>1) nmatch = match2(i, jmatch, j0, j1, neighbors, caliper, nmatch, idx_idlist)
+
+			idx = IDLIST[1::nmatch] // matched neighbors
+
+			if (i0 != j0) {
+				NN[i] = nmatch
+				N1[i, .] = idx[1::min((k , nmatch))]' // with ties we only store k<=nneighbors id's
+				WEIGHT[idx, .] = WEIGHT[idx, .] + J(nmatch, 1, 1 / nmatch)
+				MOUTVAR[i, .] = mean(OUTVAR[idx,.])
 			}
-			if (neighbors>1) {  // match remaining neighbors (1-to-many)
-				nmatch = match2(i, jmatch, j0, j1, neighbors, caliper, nmatch, idx_idlist)
-			}
-			for(k = 1; k<=nmatch; k++) {
-				obs = IDLIST[k]
-				if (i0 != j0 & k<=neighbors) { // note that with ties we only keep k<=neighbors id's
-					N1[i, k] = obs
-				}
-				if (i0 != j0) WEIGHT[obs] = WEIGHT[obs] + 1/nmatch
-				if (nout>0) MOUTVAR[i,.] = MOUTVAR[i,.] + OUTVAR[obs,.]:/nmatch
-			}
-			if (i0 != j0) NN[i] = nmatch
-			// estimate conditional variance following Abadie et al. (2004, p.303)
-			if (altvar && i0 == j0) {
-				m = (nmatch :* MOUTVAR[i,.] + OUTVAR[i,.]) :/ (nmatch + 1)
-				MOUTVAR[i,.] = (OUTVAR[i,.] - m)^2
-				for (k = 1; k <= nmatch; ++k) {
-					MOUTVAR[i,.] = MOUTVAR[i,.] + (OUTVAR[IDLIST[k],.] - m)^2
-				}
-				MOUTVAR[i,.] = MOUTVAR[i,.] :/ nmatch
-				// additional PS correction
-			}
+
+			// Abadie et al. (2004, p.303)
+			//idx = i0 == j0 ? i \ idx : idx
+			idx = i \ idx
+			Ym = OUTVAR[idx, .]
+			Vc[i, (i0==1 ? 1 : 2)] = sum((Ym :- mean(Ym)):^2) / nmatch
+
+			// additional PS correction, Abadie & Imbens (2016)
+			//x = cross(X[idx, .] :- mean(X[idx,.]), 1, dP[idx, .], OUTVAR[idx, .] :- m, 0) / nmatch
+			//x = x'*Vgamma*x
+			//x
 
 
 		} else if (i0 != j0) SUPPORT[i] = 0
