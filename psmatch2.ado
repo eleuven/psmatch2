@@ -833,7 +833,7 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 			else {
 				// Abadie et al. (2004, p.303)
 				Ym = OUTVAR[(i \ idx), .]
-				Vc[i, (i0==1 ? 1 : 2)] = sum((Ym :- mean(Ym)):^2) / nmatch
+				Vc[i, 1] = sum((Ym :- mean(Ym)):^2) / nmatch
 
 				// additional PS correction, Abadie & Imbens (2016)
 				//x = cross(X[idx, .] :- mean(X[idx,.]), 1, dP[idx, .], OUTVAR[idx, .] :- m, 0) / nmatch
