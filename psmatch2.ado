@@ -17,7 +17,6 @@ program define psmatch2, sortpreserve
 	BWidth(string)
 	COMmon
 	POPulation
-	ALTVariance
 	TRIM(real 100)
 	ODDS
 	LOGIT
@@ -49,6 +48,8 @@ program define psmatch2, sortpreserve
 		foreach v of varlist `outcome' {
 			cap drop _`v'
 			local moutvar `moutvar' _`v'
+			cap drop _self_`v'
+			local soutvar `soutvar' _self_`v'
 		}
 	}
 
@@ -247,11 +248,10 @@ program define psmatch2, sortpreserve
 	// outcome of matches
 	if ("`outcome'"!="") {
 		foreach v of varlist `outcome'	 {
-			if ("`ate'"=="") {
-				qui g double _`v' = 0 if _support==1 & _treated==1
-			}
-			else qui g double _`v' = 0 if _support==1
+			qui g double _`v' = 0 if _support==1 & cond("`ate'"=="", _treated, 1)
 			label var _`v' "psmatch2: value of `v' of match(es)"
+			qui g double _self_`v' = 0 if _support==1 & cond("`ate'"=="", _treated, 1)
+			label var _self_`v' "psmatch2: value of `v' of match(es) within same treatment arm"
 		}
 	}
 
@@ -364,7 +364,7 @@ program define psmatch2, sortpreserve
 	qui replace _weight = . if _weight==0 | _support==0
 
 	// generate output
-	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') `population' `altvariance' exog(`varlist') shat(`shat')
+	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') `population' exog(`varlist') shat(`shat')
 
 	// get rid of evil global
 	macro drop OUTVAR
@@ -374,7 +374,7 @@ end
 
 // FORMAT OUTPUT TABLE
 program define _mktab, rclass
-syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) Neighbor(integer 1) population altvariance exog(varlist fv) shat(varname)]
+syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) Neighbor(integer 1) population exog(varlist fv) shat(varname)]
 
 // return model info
 if ("`exog'"!="") return local exog = "`exog'"
@@ -425,7 +425,6 @@ qui foreach v of varlist `varlist' {
 		tempvar VhatE VhatEt VhatEu w
 		g `w' = max(_weight, 0)
 		// AI (2006, eq14 p. 250), or Aetal (2004, p303)
-		//g `shat' = cond("`altvariance'" == "", (`ai' / (`ai' + 1)) * (`v' - _self_`v')^2, _self_`v')
 		if ("`population'" == "") { // AI. p.245-246
 			g `VhatEt' = `shat' * (_treated - (1 - _treated) * `w')^2
 			if ("`ate'" != "") {
@@ -683,8 +682,6 @@ void match_mahalanobis(real scalar t0, real scalar t1, real scalar c0, real scal
 	real matrix W, dist, smallest, dist2
 	real vector id
 	
-	altvar = (st_local("altvariance") != "")
-
 	st_view(X=., ., tokens(xvars))
 	st_view(N1=., ., tokens(n1))
 	st_view(WEIGHT=., ., "_weight")
@@ -694,7 +691,7 @@ void match_mahalanobis(real scalar t0, real scalar t1, real scalar c0, real scal
 	nout = rows(tokens(outvar))
 	if (nout > 0) {
 		st_view(OUTVAR=., ., tokens(outvar)) 
-		st_view(MOUTVAR=., ., tokens(moutvar))
+		st_view(MOUTVAR=., ., st_local("moutvar"))
 	}
 
 	st_view(Vc=., ., st_local(vc)) // variance components
@@ -777,8 +774,6 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	vadj1 = 0
 	vadj0 = 0
 
-	altvar = (st_local("altvariance") != "")
-
 	idx_idlist = st_addvar("float", st_tempname())
 	st_view(IDLIST=., ., idx_idlist)
 
@@ -789,7 +784,8 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	nout = rows(tokens(outvar))
 	if (nout>0) {
 		st_view(OUTVAR=., ., tokens(outvar)) 
-		st_view(MOUTVAR=., ., tokens(moutvar))
+		st_view(MOUTVAR=., ., st_local("moutvar"))
+		st_view(SOUTVAR=., ., st_local("soutvar"))
 	}
 
 	nmatch = 0
@@ -823,14 +819,14 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 			if (neighbors>1) nmatch = match2(i, jmatch, j0, j1, neighbors, caliper, nmatch, idx_idlist)
 
 			idx = IDLIST[1::nmatch] // matched neighbors
-
 			if (i0 != j0) {
-				NN[i] = nmatch
-				N1[i, .] = idx[1::min((k , nmatch))]' // with ties we only store k<=nneighbors id's
-				WEIGHT[idx, .] = WEIGHT[idx, .] + J(nmatch, 1, 1 / nmatch)
 				MOUTVAR[i, .] = mean(OUTVAR[idx,.])
+				WEIGHT[idx, .] = WEIGHT[idx, .] + J(nmatch, 1, 1 / nmatch)
+				N1[i, .] = idx[1::min((k , nmatch))]' // with ties we only store k<=nneighbors id's
+				NN[i] = nmatch
 			}
-			else {
+			if (i0 == j0) {
+				SOUTVAR[i, .] = mean(OUTVAR[idx,.])
 				// Abadie et al. (2004, p.303)
 				Ym = OUTVAR[(i \ idx), .]
 				Vc[i, 1] = sum((Ym :- mean(Ym)):^2) / nmatch

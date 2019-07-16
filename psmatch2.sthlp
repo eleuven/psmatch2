@@ -19,7 +19,6 @@ help for {hi:psmatch2}
     {cmdab:mahal:anobis}{cmd:(}{it:varlist}{cmd:)}
     {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
     {cmdab:pop:ulation}
-    {cmdab:altv:ariance}
     {cmd:kernel}
     {cmd:llr}
     {cmdab:k:erneltype}{cmd:(}{it:type}{cmd:)}
@@ -304,7 +303,6 @@ for all the treated:
     {cmdab:out:come}{cmd:(}{it:varlist}{cmd:)}
     {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
     [{cmdab:pop:ulation}
-    {cmdab:altv:ariance}
     {cmdab:k:ernel}{cmd:(}{it:kernel_type}{cmd:)}
     {cmd:llr}
     {cmdab:bw:idth}{cmd:(}{it:real}{cmd:)}
@@ -369,8 +367,7 @@ The estimates are returned in {it:r(ate)}, {it:r(atu)} and {it:r(att)} respectiv
 {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
 calculate the heteroskedasticity-consistent analytical standard errors
 proposed by Abadie and Imbens (2006) by specifying the number of neighbors to be used
-to calculate the conditional variance (their formula (14)). With option {cmdab:altv:ariance} one can
-specify to use the estimator of Abadie et al. (2004) instead.
+to calculate the conditional variance (their formula (14)).
 
 {pmore}
 Note that this is appropriate for nearest-neighbor matching on the X's, i.e. Mahalanobis-metric matching ({cmd:mahal()}) not augmented with the propensity score.
@@ -381,10 +378,6 @@ By default the sample variance is calculated (population variance can be calcula
 {phang}
 {cmdab:pop:ulation}
 When using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, calculate the population variance rather than the sample variance (default).
-
-{phang}
-{cmdab:altv:ariance}
-When using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, calculate the conditional variance using the expression in Abadie et al. (2004, p.303).
 
 {title:Options: Estimation of the propensity score}
 
