@@ -144,7 +144,7 @@ program define psmatch2, sortpreserve
 		local Xnames : list Xnames - constant
 		tempname dP
 		if ("`logit'"=="") {
-			g double `dP' = _psore * (1 - _pscore)
+			g double `dP' = _pscore * (1 - _pscore)
 		}
 		else {
 			tempname score
@@ -159,7 +159,7 @@ program define psmatch2, sortpreserve
 	capture markout `touse' _pscore
 
 	// match on log odds ratio if requested, only with logit?
-	if ("`odds'"!="") qui replace _pscore = ln(_pscore/(1 - _pscore))
+	if ("`odds'"!="") qui replace _pscore = ln(_pscore / (1 - _pscore))
 
 	// create treatment indicator variable
 	qui g byte _treated = `treat' if `touse'
@@ -180,7 +180,7 @@ program define psmatch2, sortpreserve
 	label define _support 0 "Off support" 1 "On support"
 	label value _support _support
 	if (("`common'"!="" | `trim'<100) & ("`varlist'"!="" | "`pscore'"!="")) {
-		if !inrange(`trim',0,100) {
+		if !inrange(`trim', 0, 100) {
 			di as error "Trim level out of range"
 			exit 198
 		}
