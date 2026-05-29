@@ -210,7 +210,7 @@ program define psmatch2, sortpreserve
 			qui spline `v' _pscore if _treated==0 & _support==1, gen(_s_`v') nknots(`nknots') nograph
 			if ("`ate'"!="") {
 				if ("`nknots'"=="0") {
-					qui ount if _treated==1 & _support==1
+					qui count if _treated==1 & _support==1
 					local nknots = int(r(N)^0.25)
 				}
 				tempvar s`v'
@@ -679,8 +679,8 @@ mata:
 // calculates x'Wx used by mahalanobis metric, needs to be done only once
 real scalar _Dif_mbase(string xvars, string base, string wmatrix)
 {
-	real matrix W
-	real scalar j
+	real matrix W, X
+	real scalar i, j
 	j = st_addvar("double", base)
 	st_view(X=., ., tokens(xvars))
 	W = st_matrix(wmatrix)
@@ -693,10 +693,11 @@ void match_mahalanobis(real scalar t0, real scalar t1, real scalar c0, real scal
 	real scalar neighbors, real scalar caliper, real scalar noreplace, real scalar ties, 
 	string wmatrix, string xvars, string n1, string outvar, string moutvar, string ate)
 {
-	real scalar obs, nout, nmatch, self
-	real matrix W, dist, smallest, dist2
+	real scalar obs, nout, nmatch
+	real matrix W, dist, smallest
 	real vector id
 	
+	real scalar altvar
 	altvar = (st_local("altvariance") != "")
 
 	st_view(X=., ., tokens(xvars))
@@ -780,7 +781,7 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	real scalar neighbors, real scalar caliper, real scalar noreplace, real scalar ties, 
 	string wmatrix, string xvars, string n1, string outvar, string moutvar, string ate)
 {
-	real scalar dif0, dif1, obs, i, jmatch, j, k, nmatch, nout, forward, idx_idlist, idx_ismatch
+	real scalar dif0, dif1, obs, i, jmatch, j, k, nmatch, nout, forward, idx_idlist, idx_ismatch, altvar
 
 	st_view(PSCORE=., ., "_pscore")
 	st_view(WEIGHT=., ., "_weight")
@@ -792,7 +793,7 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 
 	altvar = (st_local("altvariance") != "")
 
-	idx_idlist = st_addvar("float", st_tempname())
+	idx_idlist = st_addvar("long", st_tempname())
 	st_view(IDLIST=., ., idx_idlist)
 
 	idx_ismatch = st_addvar("byte", st_tempname())
@@ -809,7 +810,6 @@ void match_pscore(real scalar i0, real scalar i1, real scalar j0, real scalar j1
 	forward = 1
 	i = i0
 	jmatch = j0
-	m=1
 	while (i<=i1 && (jmatch>=j0 && jmatch<=j1)) {
 		if (i==j0) ++jmatch
 		if (i==jmatch) --jmatch
@@ -882,7 +882,7 @@ real scalar next_unmatched(real scalar obs, real scalar j0, real scalar forward,
 
 real scalar match2(real scalar obs, real scalar jm, real scalar j0, real scalar j1, real scalar neighbors, real scalar caliper, real scalar nmatch, real scalar idx_idlist)
 {
-	real scalar dif0, dif1, k, pos0, pos1, idx_id, jmatch
+	real scalar dif0, dif1, k, pos0, pos1, jmatch
 
 	st_view(PSCORE=., ., "_pscore")
 	st_view(ID=., ., "_id")
