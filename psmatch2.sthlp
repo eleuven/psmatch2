@@ -67,9 +67,14 @@ w_i is the weight given to control i. {cmd:psmatch2} stores the estimate of the 
 in {it:r(seatt)} or with more than one outcome variable, in {it:r(seatt_varname)}.
 
 {pstd}
-With nearest neighbor matching on the X's ({cmd:mahal()}), then analytical standard errors as in Abadie and Imbens (2006) are calculated
-when {it:M>0} is passed using option {cmd:ai(}{it:M}{cmd:)}, where {it:M} is the number of neighbors that are used
-to calculate the conditional variance (formula (14) in Abadie and Imbens, 2006).
+With nearest neighbor matching, analytical standard errors as in Abadie and Imbens (2006) are calculated
+when {it:M}>0 is passed using option {cmd:ai(}{it:M}{cmd:)}, where {it:M} is the number of neighbors used
+to estimate the conditional variance (their formula (14)).
+When the propensity score is estimated internally (probit or logit) and options {cmd:population} and {cmd:ate} are specified,
+{cmd:psmatch2} automatically applies the Abadie and Imbens (2016) correction for first-stage score estimation,
+which adjusts the AI standard errors downward to account for the additional information in the estimated score.
+The correction is not applied when the propensity score is supplied via {cmd:pscore()}, when factor variables appear
+in the first-stage model, or when {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or {cmd:altvariance} are specified.
 
 {pstd}
 {cmd:psmatch2} stores the estimate of the treatment effect on the treated in {it:r(att)}, this allows
@@ -368,12 +373,24 @@ The estimates are returned in {it:r(ate)}, {it:r(atu)} and {it:r(att)} respectiv
 {phang}
 {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
 calculate the heteroskedasticity-consistent analytical standard errors
-proposed by Abadie and Imbens (2006) by specifying the number of neighbors to be used
-to calculate the conditional variance (their formula (14)). With option {cmdab:altv:ariance} one can
-specify to use the estimator of Abadie et al. (2004) instead.
+proposed by Abadie and Imbens (2006) by specifying the number of neighbors {it:M} used
+to estimate the conditional variance (their formula (14)). With option {cmdab:altv:ariance} one can
+use the estimator of Abadie et al. (2004) instead.
 
 {pmore}
-Note that this is appropriate for nearest-neighbor matching on the X's, i.e. Mahalanobis-metric matching ({cmd:mahal()}) not augmented with the propensity score.
+For Mahalanobis matching ({cmd:mahal()}), the AI(2006) standard errors are returned directly.
+
+{pmore}
+For propensity score matching, when all of the following hold, {cmd:psmatch2} additionally applies
+the Abadie and Imbens (2016) correction for first-stage estimation of the propensity score:
+the score is estimated internally (not via {cmd:pscore()}),
+options {cmd:population} and {cmd:ate} are both specified,
+and none of {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, {cmd:altvariance}, {cmd:common}, {cmd:index},
+{cmd:odds}, {cmd:kernel}, {cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} are specified.
+The correction reduces the AI standard errors to account for the fact that using an estimated
+rather than the true propensity score decreases variance.
+When the correction fires, the note "Population S.E. with Abadie-Imbens correction for estimated propensity scores" is printed.
+When eligible conditions are not met, the note states which condition was not satisfied and SEs treat the score as fixed.
 
 {pmore}
 By default the sample variance is calculated (population variance can be calculated using option {cmdab:pop:ulation}).
@@ -483,6 +500,34 @@ becomes matching on a quadratic metric with the specified weighting matrix.
 {cmdab:nk:nots(}{it:integer}{cmd:)} specifies the number of interior knots for spline smoothing. Default is
     the fourth root of the number of comparison units.
 
+{title:Saved results}
+
+{pstd}
+{cmd:psmatch2} saves the following in {cmd:r()}:
+
+{synoptset 28 tabbed}{...}
+{synopt:{cmd:r(att)}}average treatment effect on the treated{p_end}
+{synopt:{cmd:r(seatt)}}standard error of ATT{p_end}
+{synopt:{cmd:r(ate)}}average treatment effect (with {cmd:ate}){p_end}
+{synopt:{cmd:r(seate)}}standard error of ATE (with {cmd:ate}){p_end}
+{synopt:{cmd:r(atu)}}average treatment effect on the untreated (with {cmd:ate}){p_end}
+{synopt:{cmd:r(seatu)}}standard error of ATU (with {cmd:ate}){p_end}
+
+{pstd}
+With multiple outcome variables, estimates are also returned as {cmd:r(att_}{it:varname}{cmd:)} etc. for each outcome.
+
+{pstd}
+When the Abadie-Imbens (2016) first-stage correction fires (see {cmd:ai()} above), the following
+additional scalars are returned for each outcome variable {it:y}:
+
+{synoptset 28 tabbed}{...}
+{synopt:{cmd:r(seate_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATE before the correction{p_end}
+{synopt:{cmd:r(seatt_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATT before the correction{p_end}
+{synopt:{cmd:r(seatu_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATU before the correction{p_end}
+{synopt:{cmd:r(qA_}{it:y}{cmd:)}}correction term for ATE: {cmd:r(seate)}^2 = {cmd:r(seate_ai_fixed_}{it:y}{cmd:)}^2 - {cmd:r(qA_}{it:y}{cmd:)}{p_end}
+{synopt:{cmd:r(qTminus_}{it:y}{cmd:)}, {cmd:r(qTplus_}{it:y}{cmd:)}}correction terms for ATT{p_end}
+{synopt:{cmd:r(qUminus_}{it:y}{cmd:)}, {cmd:r(qUplus_}{it:y}{cmd:)}}correction terms for ATU{p_end}
+
 {title:Examples}
 
     {inp: . psmatch2 training age gender, kernel k(biweight) out(wage)}
@@ -519,7 +564,9 @@ IN NO EVENT WILL THE COPYRIGHT HOLDERS OR THEIR EMPLOYERS, OR ANY OTHER PARTY WH
 
 {p 0 2}Abadie, A., Drukker, D., Herr, J. L., & Imbens, G. W. (2004). "Implementing matching estimators for average treatment effects in Stata", {it:Stata journal 4}, 290-311.
 
-{p 0 2}Abadie A. and Imbens, G. (2006), "Large sample properties of matching estimators for average treatment effects", {it:Econometrica 74}(1), 235-267.
+{p 0 2}Abadie, A. and Imbens, G.W. (2006), "Large sample properties of matching estimators for average treatment effects", {it:Econometrica 74}(1), 235-267.
+
+{p 0 2}Abadie, A. and Imbens, G.W. (2016), "Matching on the Estimated Propensity Score", {it:Econometrica 84}(2), 781-807.
 
 {p 0 2}Cochran, W. and Rubin, D.B. (1973), "Controlling Bias in Observational Studies", {it:Sankyha 35}, 417-446.
 
