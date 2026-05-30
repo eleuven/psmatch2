@@ -1,0 +1,13 @@
+v 3
+d psmatch2: Mahalanobis and propensity score matching
+d
+d Authors: E. Leuven and B. Sianesi
+d Distribution-Date: 20260530
+d
+f psmatch2.ado
+f psmatch2.sthlp
+f psmatch2.dlg
+f psgraph.ado
+f psgraph.sthlp
+f pstest.ado
+f pstest.sthlp

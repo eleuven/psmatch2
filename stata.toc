@@ -1,0 +1,7 @@
+v 3
+d psmatch2
+d Mahalanobis and propensity score matching
+d
+d Development version from GitHub.
+d
+p psmatch2 Mahalanobis and propensity score matching

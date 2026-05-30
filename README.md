@@ -5,3 +5,19 @@ psmatch2 is a <a href="www.stata.com">Stata<a/> module that implements full Maha
 
 It provides three commands: -psmatch2- perform the matching, -pstest- reports balancing, and -psgraph- display support for the propensity score.
 
+## Installation from GitHub
+
+Development version:
+
+```
+net install psmatch2, from(https://raw.githubusercontent.com/eleuven/psmatch2/master) replace
+```
+
+Released versions:
+
+```
+net install psmatch2, from(https://raw.githubusercontent.com/eleuven/psmatch2/master/versions/v4.0.13) replace
+net install psmatch2, from(https://raw.githubusercontent.com/eleuven/psmatch2/master/versions/v4.0.12) replace
+```
+
+Future releases should add a frozen copy under `versions/vX.Y.Z/` so older versions remain installable with `net install`.

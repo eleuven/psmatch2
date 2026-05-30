@@ -1,0 +1,7 @@
+v 3
+d psmatch2
+d Mahalanobis and propensity score matching
+d
+d Release v4.0.12.
+d
+p psmatch2 Mahalanobis and propensity score matching
