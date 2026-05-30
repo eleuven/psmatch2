@@ -126,48 +126,20 @@ program define psmatch2, sortpreserve
 	}
 	if ("`bwidth'"=="") local bwidth "0.06"
 
-	// AI(2016) PS-estimation correction eligibility (conditions 1-16, all from syntax)
-	local do_pscorr = 0
-	local pscorr_note ""
-	if (`ai' > 0                      ///
-	    & "`population'" != ""        ///
-	    & "`ate'" != ""               ///
-	    & "`method'" == "neighbor"    ///
-	    & "`metric'" == "pscore"      ///
-	    & "`varlist'" != ""           ///
-	    & "`pscore'" == ""            ///
-	    & "`index'" == ""             ///
-	    & "`odds'" == ""              ///
-	    & "`ties'" == ""              ///
-	    & "`noreplacement'" == ""     ///
-	    & "`altvariance'" == ""       ///
-	    & `caliper_orig' <= 0         ///
-	    & "`common'" == ""            ///
-	    & `trim' == 100               ///
-	    & "`kernel'" == ""            ///
-	    & "`llr'" == ""               ///
-	    & "`radius'" == ""            ///
-	    & "`spline'" == ""            ///
-	    & "`mahalanobis'" == "") {
-	    local do_pscorr = 1
-	}
-	if (`ai' > 0 & `do_pscorr' == 0) {
-	    if ("`pscore'" != "")              local pscorr_note "pscore() was supplied"
-	    else if ("`index'" != "")          local pscorr_note "index was specified"
-	    else if ("`odds'" != "")           local pscorr_note "odds was specified"
-	    else if ("`ties'" != "")           local pscorr_note "ties was specified"
-	    else if ("`noreplacement'" != "")  local pscorr_note "noreplacement was specified"
-	    else if ("`altvariance'" != "")    local pscorr_note "altvariance was specified"
-	    else if (`caliper_orig' > 0)       local pscorr_note "caliper was specified"
-	    else if ("`common'" != "")         local pscorr_note "common was specified"
-	    else if (`trim' != 100)            local pscorr_note "trim was specified"
-	    else if ("`kernel'" != "" | "`llr'" != "" | "`radius'" != "" | "`spline'" != "" | "`mahalanobis'" != "") ///
-	                                       local pscorr_note "kernel, llr, radius, spline, or mahalanobis was specified"
-	    else if ("`population'" == "" | "`ate'" == "") ///
-	                                       local pscorr_note "population and ate are both required"
-	    else if ("`varlist'" == "")        local pscorr_note "propensity score was not estimated internally"
-	    else                               local pscorr_note "eligibility conditions not met"
-	}
+	// AI(2016) correction: internal pscore NN, population AI
+	local do_pscorr = (`ai' > 0                                      ///
+		& "`population'" != ""                                       ///
+		& "`ate'" != ""                                              ///
+		& "`method'" == "neighbor"                                   ///
+		& "`metric'" == "pscore"                                     ///
+		& "`varlist'" != ""                                          ///
+		& "`pscore'" == ""                                           ///
+		& "`index'`odds'`ties'`noreplacement'`altvariance'`common'" == "" ///
+		& `caliper_orig' <= 0                                        ///
+		& `trim' == 100                                              ///
+		& "`kernel'`llr'`radius'`spline'`mahalanobis'" == "")
+
+	local psfix_note = (`ai' > 0 & "`metric'" == "pscore" & !`do_pscorr')
 
 	// estimate propensity score
 	if ("`varlist'"!="") {
@@ -193,7 +165,7 @@ program define psmatch2, sortpreserve
 				capture confirm variable `x'
 				if _rc {
 					local do_pscorr = 0
-					local pscorr_note "factor-variable or non-variable first-stage coefficient names"
+					local psfix_note = 1
 				}
 			}
 			if (`do_pscorr') {
@@ -470,7 +442,7 @@ variable in the dataset and everything should work like before.
 	}
 	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') ///
 		`population' `altvariance' exog(`varlist') ///
-		pscorr(`do_pscorr') pscornote("`pscorr_note'") `_psc_obj'
+		pscorr(`do_pscorr') psfixnote(`psfix_note') `_psc_obj'
 
 	// get rid of evil global
 	macro drop OUTVAR
@@ -482,7 +454,7 @@ end
 program define _mktab, rclass
 syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) ///
 	Neighbor(integer 1) population altvariance exog(varlist fv) ///
-	pscorr(integer 0) pscornote(string) dp(varname) xvars(varlist) ///
+	pscorr(integer 0) psfixnote(integer 0) dp(varname) xvars(varlist) ///
 	selfxvars(varlist) vgamma(name)]
 
 // return model info
@@ -670,15 +642,12 @@ if (`ai'==0) {
 	if (`seatt' != .) di as text "Note: S.E. does not take into account that the propensity score is estimated."
 }
 else if (`pscorr') {
-	di as text "Note: Population S.E. with Abadie-Imbens correction for estimated propensity scores."
+	di as text "Note: Population S.E. adjusted for estimated propensity scores."
 }
 else {
 	if ("`population'"=="") di as text "Note: Sample S.E."
 	else di as text "Note: Population S.E."
-	if ("`pscornote'"!="") {
-		di as text "Note: S.E. treats the estimated propensity score as fixed."
-		di as text "Note: Estimated-score correction not applied: `pscornote'."
-	}
+	if (`psfixnote') di as text "Note: S.E. treats the propensity score as fixed."
 }
 
 tab _treated _support

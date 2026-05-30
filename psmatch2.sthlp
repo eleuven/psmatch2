@@ -72,7 +72,7 @@ when {it:M}>0 is passed using option {cmd:ai(}{it:M}{cmd:)}, where {it:M} is the
 to estimate the conditional variance (their formula (14)).
 When the propensity score is estimated internally (probit or logit) and options {cmd:population} and {cmd:ate} are specified,
 {cmd:psmatch2} automatically applies the Abadie and Imbens (2016) correction for first-stage score estimation,
-which adjusts the AI standard errors downward to account for the additional information in the estimated score.
+which adjusts the AI standard errors to account for the additional information in the estimated score.
 The correction is not applied when the propensity score is supplied via {cmd:pscore()}, when factor variables appear
 in the first-stage model, or when {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or {cmd:altvariance} are specified.
 
@@ -387,10 +387,9 @@ the score is estimated internally (not via {cmd:pscore()}),
 options {cmd:population} and {cmd:ate} are both specified,
 and none of {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, {cmd:altvariance}, {cmd:common}, {cmd:index},
 {cmd:odds}, {cmd:kernel}, {cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} are specified.
-The correction reduces the AI standard errors to account for the fact that using an estimated
-rather than the true propensity score decreases variance.
-When the correction fires, the note "Population S.E. with Abadie-Imbens correction for estimated propensity scores" is printed.
-When eligible conditions are not met, the note states which condition was not satisfied and SEs treat the score as fixed.
+The ATE correction is weakly negative in variance. For ATT and ATU, the correction can increase or decrease the SE.
+When the correction fires, the note "Population S.E. adjusted for estimated propensity scores" is printed.
+When propensity-score AI standard errors are reported without the correction, SEs treat the score as fixed.
 
 {pmore}
 By default the sample variance is calculated (population variance can be calculated using option {cmdab:pop:ulation}).
@@ -599,4 +598,3 @@ Edwin Leuven, University of Oslo. If you observe any problems {browse "mailto:e.
 
 {pstd}
 Barbara Sianesi, Institute for Fiscal Studies, London, UK.
-

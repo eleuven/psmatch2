@@ -19,6 +19,25 @@ program define _dgp2
     gen y2 = 2*x1 - x2 + 0.5*treat + rnormal()
 end
 
+capture program drop _log_count
+program define _log_count, rclass
+    args path needle
+    local count = 0
+    tempname fh
+    file open `fh' using "`path'", read text
+    file read `fh' line
+    while r(eof)==0 {
+        if strpos(`"`line'"', `"`needle'"') local count = `count' + 1
+        file read `fh' line
+    }
+    file close `fh'
+    return scalar count = `count'
+end
+
+local fixed_note "Note: S.E. treats the propensity score as fixed."
+local adjusted_note "Note: Population S.E. adjusted for estimated propensity scores."
+local skipped_detail "Estimated-score correction not applied"
+
 
 // -------------------------------------------------------------------------
 // Test 1: Backward compatibility — ai(0) results identical across two runs
@@ -109,9 +128,31 @@ _dgp2 300
 qui probit treat x1 x2
 qui predict double _ps_ext3, pr
 
-qui psmatch2 treat, pscore(_ps_ext3) outcome(y1) ate ai(1) population
-assert missing(r(qA_y1))
+tempfile _t3log
+log using "`_t3log'", text replace name(t3log)
+psmatch2 treat, pscore(_ps_ext3) outcome(y1) ate ai(1) population
+scalar _t3_qA      = r(qA_y1)
+scalar _t3_qTminus = r(qTminus_y1)
+scalar _t3_qTplus  = r(qTplus_y1)
+scalar _t3_qUminus = r(qUminus_y1)
+scalar _t3_qUplus  = r(qUplus_y1)
+scalar _t3_seatefx = r(seate_ai_fixed_y1)
+scalar _t3_seattfx = r(seatt_ai_fixed_y1)
+scalar _t3_seatufx = r(seatu_ai_fixed_y1)
 scalar _t3_seate = r(seate)
+log close t3log
+assert missing(_t3_qA)
+assert missing(_t3_qTminus)
+assert missing(_t3_qTplus)
+assert missing(_t3_qUminus)
+assert missing(_t3_qUplus)
+assert missing(_t3_seatefx)
+assert missing(_t3_seattfx)
+assert missing(_t3_seatufx)
+_log_count "`_t3log'" "`fixed_note'"
+assert r(count) == 1
+_log_count "`_t3log'" "`skipped_detail'"
+assert r(count) == 0
 
 qui psmatch2 treat, pscore(_ps_ext3) outcome(y1) ate ai(1) population
 assert reldif(r(seate), _t3_seate) < 1e-10
@@ -140,21 +181,41 @@ scalar _t4_ate_ref   = r(ate)
 drop _ps_ext4
 
 // eligible run
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population
+tempfile _t4log
+log using "`_t4log'", text replace name(t4log)
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) population
 scalar _t4_qA       = r(qA_y1)
+scalar _t4_qTminus  = r(qTminus_y1)
+scalar _t4_qTplus   = r(qTplus_y1)
+scalar _t4_qUminus  = r(qUminus_y1)
+scalar _t4_qUplus   = r(qUplus_y1)
 scalar _t4_seate    = r(seate)
 scalar _t4_seate_fx = r(seate_ai_fixed_y1)
+scalar _t4_seatt_fx = r(seatt_ai_fixed_y1)
+scalar _t4_seatu_fx = r(seatu_ai_fixed_y1)
+scalar _t4_att      = r(att)
+scalar _t4_atu      = r(atu)
+scalar _t4_ate      = r(ate)
+log close t4log
+_log_count "`_t4log'" "`adjusted_note'"
+assert r(count) == 1
 
 // qA is a quadratic form: non-negative
 assert _t4_qA >= -1e-10
+assert _t4_qTminus < .
+assert _t4_qTplus < .
+assert _t4_qUminus < .
+assert _t4_qUplus < .
+assert _t4_seatt_fx < .
+assert _t4_seatu_fx < .
 // seate_ai_fixed matches pre-correction reference
 assert reldif(_t4_seate_fx, _t4_seate_ref) < 1e-10
 // corrected SE weakly below uncorrected
 assert _t4_seate <= _t4_seate_fx + 1e-8
 // point estimates unchanged
-assert reldif(r(att), _t4_att_ref) < 1e-10
-assert reldif(r(atu), _t4_atu_ref) < 1e-10
-assert reldif(r(ate), _t4_ate_ref) < 1e-10
+assert reldif(_t4_att, _t4_att_ref) < 1e-10
+assert reldif(_t4_atu, _t4_atu_ref) < 1e-10
+assert reldif(_t4_ate, _t4_ate_ref) < 1e-10
 
 di as text "  PASS: probit eligible — qA>=0, seate corrected, point estimates unchanged"
 
@@ -226,9 +287,18 @@ set seed 808
 _dgp2 300
 gen x_cat = ceil(3 * runiform())
 
-qui psmatch2 treat i.x_cat x2, outcome(y1) ate ai(1) population
-assert missing(r(qA_y1))
-assert r(ate) < .
+tempfile _t8log
+log using "`_t8log'", text replace name(t8log)
+psmatch2 treat i.x_cat x2, outcome(y1) ate ai(1) population
+local _t8_qA = r(qA_y1)
+scalar _t8_ate = r(ate)
+log close t8log
+assert missing(`_t8_qA')
+assert _t8_ate < .
+_log_count "`_t8log'" "`fixed_note'"
+assert r(count) == 1
+_log_count "`_t8log'" "`skipped_detail'"
+assert r(count) == 0
 
 di as text "  PASS: factor variables — psmatch2 runs, correction skipped"
 
@@ -241,21 +311,30 @@ di as text _n "=== Test 9: Ineligible conditions ==="
 set seed 909
 _dgp2 300
 
+tempfile _t9log
+log using "`_t9log'", text replace name(t9log)
+
 // 9a: positive caliper
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population caliper(0.5)
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) population caliper(0.5)
 assert missing(r(qA_y1))
 
 // 9b: ties
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population ties
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) population ties
 assert missing(r(qA_y1))
 
 // 9c: noreplacement
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population noreplacement
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) population noreplacement
 assert missing(r(qA_y1))
 
 // 9d: altvariance
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population altvariance
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) population altvariance
 assert missing(r(qA_y1))
+
+log close t9log
+_log_count "`_t9log'" "`fixed_note'"
+assert r(count) == 4
+_log_count "`_t9log'" "`skipped_detail'"
+assert r(count) == 0
 
 // 9e: no population
 qui psmatch2 treat x1 x2, outcome(y1) ate ai(1)
