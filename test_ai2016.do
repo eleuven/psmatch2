@@ -3,7 +3,8 @@
 
 clear all
 set seed 42
-qui do "/Users/edwinl/Documents/GitHub/psmatch2/psmatch2.ado"
+capture program drop psmatch2
+quietly do "psmatch2.ado"
 
 // Two continuous covariates, probit treatment model, two outcomes
 capture program drop _dgp2
@@ -32,6 +33,24 @@ program define _log_count, rclass
     }
     file close `fh'
     return scalar count = `count'
+end
+
+capture program drop _assert_same_var
+program define _assert_same_var
+    args lhs rhs
+    tempvar ok
+    gen byte `ok' = (`lhs' == `rhs') | (missing(`lhs') & missing(`rhs'))
+    qui sum `ok'
+    assert r(min) == 1
+end
+
+capture program drop _assert_close_var
+program define _assert_close_var
+    args lhs rhs tol
+    tempvar ok
+    gen byte `ok' = (abs(`lhs' - `rhs') <= `tol') | (missing(`lhs') & missing(`rhs'))
+    qui sum `ok'
+    assert r(min) == 1
 end
 
 local fixed_note "Note: S.E. treats the propensity score as fixed."
@@ -94,20 +113,9 @@ scalar _t2_ate_ref = r(ate)
 drop _ps_ext2
 
 // matching output identical
-gen byte _t2_ok_ps = abs(_pscore - `ps_ref') < 1e-10
-qui sum _t2_ok_ps
-assert r(min) == 1
-drop _t2_ok_ps
-
-gen byte _t2_ok_n1 = (_n1 == `n1_ref') | (missing(_n1) & missing(`n1_ref'))
-qui sum _t2_ok_n1
-assert r(min) == 1
-drop _t2_ok_n1
-
-gen byte _t2_ok_wt = (abs(_weight - `wt_ref') < 1e-10) | (missing(_weight) & missing(`wt_ref'))
-qui sum _t2_ok_wt
-assert r(min) == 1
-drop _t2_ok_wt
+_assert_close_var _pscore `ps_ref' 1e-10
+_assert_same_var _n1 `n1_ref'
+_assert_close_var _weight `wt_ref' 1e-10
 
 // point estimates identical
 assert reldif(_t2_att_ref, _t2_att) < 1e-10
@@ -210,7 +218,7 @@ assert _t4_seatt_fx < .
 assert _t4_seatu_fx < .
 // seate_ai_fixed matches pre-correction reference
 assert reldif(_t4_seate_fx, _t4_seate_ref) < 1e-10
-// corrected SE weakly below uncorrected
+// ATE SE weakly below uncorrected
 assert _t4_seate <= _t4_seate_fx + 1e-8
 // point estimates unchanged
 assert reldif(_t4_att, _t4_att_ref) < 1e-10
@@ -345,6 +353,78 @@ qui psmatch2 treat x1 x2, outcome(y1) ai(1) population
 assert missing(r(qA_y1))
 
 di as text "  PASS: ineligible conditions — no error, correction skipped"
+
+
+// -------------------------------------------------------------------------
+// Test 10: neighbor()>1 and ai()>1
+// -------------------------------------------------------------------------
+
+di as text _n "=== Test 10: neighbor()>1 and ai()>1 ==="
+set seed 1010
+_dgp2 500
+
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(2) neighbor(3) population
+scalar _t10_att = r(att)
+scalar _t10_atu = r(atu)
+scalar _t10_ate = r(ate)
+assert r(qA_y1) >= -1e-10
+assert r(qA_y1) < .
+assert r(qTminus_y1) < .
+assert r(qTplus_y1) < .
+assert r(qUminus_y1) < .
+assert r(qUplus_y1) < .
+assert abs(r(seate)^2 - (r(seate_ai_fixed_y1)^2 - r(qA_y1))) < 1e-10
+assert abs(r(seatt)^2 - (r(seatt_ai_fixed_y1)^2 - r(qTminus_y1) + r(qTplus_y1))) < 1e-10
+assert abs(r(seatu)^2 - (r(seatu_ai_fixed_y1)^2 - r(qUminus_y1) + r(qUplus_y1))) < 1e-10
+
+tempvar t10_ps t10_w t10_nn t10_sup t10_n1 t10_n2 t10_n3
+gen double `t10_ps' = _pscore
+gen double `t10_w' = _weight
+gen byte   `t10_nn' = _nn
+gen byte   `t10_sup' = _support
+gen long   `t10_n1' = _n1
+gen long   `t10_n2' = _n2
+gen long   `t10_n3' = _n3
+
+qui probit treat x1 x2
+qui predict double _ps_ext10, pr
+qui psmatch2 treat, pscore(_ps_ext10) outcome(y1) ate ai(2) neighbor(3) population
+assert missing(r(qA_y1))
+assert reldif(r(att), _t10_att) < 1e-10
+assert reldif(r(atu), _t10_atu) < 1e-10
+assert reldif(r(ate), _t10_ate) < 1e-10
+_assert_close_var _pscore `t10_ps' 1e-10
+_assert_close_var _weight `t10_w' 1e-10
+_assert_same_var _nn `t10_nn'
+_assert_same_var _support `t10_sup'
+_assert_same_var _n1 `t10_n1'
+_assert_same_var _n2 `t10_n2'
+_assert_same_var _n3 `t10_n3'
+drop _ps_ext10
+
+di as text "  PASS: neighbor()>1 correction and matching output checks"
+
+
+// -------------------------------------------------------------------------
+// Test 11: One-dimensional score
+// -------------------------------------------------------------------------
+
+di as text _n "=== Test 11: One-dimensional score ==="
+set seed 1111
+clear
+set obs 2000
+gen x1 = rnormal()
+gen double idx = 0.7*x1
+gen treat = (rnormal() < idx)
+gen y1 = x1 + treat + rnormal()
+
+qui psmatch2 treat x1, outcome(y1) ate ai(1) population
+di as text "  qA = " as result %9.3g r(qA_y1)
+assert r(qA_y1) >= -1e-10
+assert r(qA_y1) < 1e-5
+assert abs(r(seate)^2 - (r(seate_ai_fixed_y1)^2 - r(qA_y1))) < 1e-10
+
+di as text "  PASS: one-dimensional score diagnostic"
 
 
 di as text _n "All tests passed."

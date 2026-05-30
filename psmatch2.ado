@@ -1,4 +1,4 @@
-*! version 4.0.12 30jan2016 E. Leuven, B. Sianesi
+*! version 4.0.13 30may2026 E. Leuven, B. Sianesi
 program define psmatch2, sortpreserve
 	version 11.0
 	#delimit ;
@@ -126,7 +126,7 @@ program define psmatch2, sortpreserve
 	}
 	if ("`bwidth'"=="") local bwidth "0.06"
 
-	// AI(2016) correction: internal pscore NN, population AI
+	// AI(2016): internal pscore NN, population AI
 	local do_pscorr = (`ai' > 0                                      ///
 		& "`population'" != ""                                       ///
 		& "`ate'" != ""                                              ///
@@ -147,12 +147,12 @@ program define psmatch2, sortpreserve
 			local logit "probit"
 		}
 		`quietly' `logit' `treat' `varlist' if `touse', nolog
-		qui replace `touse' = e(sample) // XX with factor vars some obs may be dropped because they predict failure perfectly
+		qui replace `touse' = e(sample) // factor vars may drop obs
 		tempvar pscore
 		qui predict double `pscore', `index'
 		qui g double _pscore = `pscore' if `touse'
 		label var _pscore "psmatch2: Propensity Score"
-		// AI(2016) first-stage bookkeeping (condition 17 and dP)
+		// first-stage objects for AI(2016)
 		if (`do_pscorr') {
 			tempname Vgamma
 			matrix `Vgamma' = e(V)
@@ -407,7 +407,7 @@ variable in the dataset and everything should work like before.
 					local soutvar `soutvar' _self_`v'
 				}
 			}
-			// AI(2016): same-arm matched X means, one tempvar per first-stage covariate
+			// same-arm matched X means for AI(2016)
 			local self_outvar  "$OUTVAR"
 			local self_moutvar "`soutvar'"
 			local selfxvars ""
@@ -456,6 +456,8 @@ syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0
 	Neighbor(integer 1) population altvariance exog(varlist fv) ///
 	pscorr(integer 0) psfixnote(integer 0) dp(varname) xvars(varlist) ///
 	selfxvars(varlist) vgamma(name)]
+
+if (`pscorr') unab _n1list : _n1-_n`neighbor'
 
 // return model info
 if ("`exog'"!="") return local exog = "`exog'"
@@ -553,42 +555,41 @@ qui foreach v of varlist `varlist' {
 	}
 
 	if (`pscorr') {
-		local _seate_ai = `seate'
-		local _seatt_ai = `seatt'
-		local _seatu_ai = `seatu'
+		tempname seate_ai seatt_ai seatu_ai vv _psr
+		scalar `seate_ai' = `seate'
+		scalar `seatt_ai' = `seatt'
+		scalar `seatu_ai' = `seatu'
 		local _att_v = `att'
 		local _atu_v = `atu'
 		local _ate_v = `ate'
-		unab _n1list : _n1-_n`neighbor'
-		tempname _psr
 		mata: st_matrix("`_psr'", pscorr_ai2016("`v'", "_self_`v'", "_`v'", ///
 			"`xvars'", "`selfxvars'", "`dp'", "`vgamma'", "`_n1list'", ///
 			`ai', `neighbor', `N0', `N1', `_att_v', `_atu_v', `_ate_v'))
 		// ATE
-		local _vv = (`_seate_ai')^2 - `_psr'[1,1]
-		if (`_vv' >= -1e-10 & `_vv' < 0) local _vv = 0
-		if (`_vv' >= 0) {
-			scalar `seate' = sqrt(`_vv')
+		scalar `vv' = `seate_ai'^2 - `_psr'[1,1]
+		if (`vv' >= -1e-10 & `vv' < 0) scalar `vv' = 0
+		if (`vv' >= 0) {
+			scalar `seate' = sqrt(`vv')
 		}
 		else {
 			noi di as text "Warning: corrected ATE variance < -1e-10 for `v'; SE set to missing."
 			scalar `seate' = .
 		}
 		// ATT
-		local _vv = (`_seatt_ai')^2 - `_psr'[1,2] + `_psr'[1,3]
-		if (`_vv' >= -1e-10 & `_vv' < 0) local _vv = 0
-		if (`_vv' >= 0) {
-			scalar `seatt' = sqrt(`_vv')
+		scalar `vv' = `seatt_ai'^2 - `_psr'[1,2] + `_psr'[1,3]
+		if (`vv' >= -1e-10 & `vv' < 0) scalar `vv' = 0
+		if (`vv' >= 0) {
+			scalar `seatt' = sqrt(`vv')
 		}
 		else {
 			noi di as text "Warning: corrected ATT variance < -1e-10 for `v'; SE set to missing."
 			scalar `seatt' = .
 		}
 		// ATU
-		local _vv = (`_seatu_ai')^2 - `_psr'[1,4] + `_psr'[1,5]
-		if (`_vv' >= -1e-10 & `_vv' < 0) local _vv = 0
-		if (`_vv' >= 0) {
-			scalar `seatu' = sqrt(`_vv')
+		scalar `vv' = `seatu_ai'^2 - `_psr'[1,4] + `_psr'[1,5]
+		if (`vv' >= -1e-10 & `vv' < 0) scalar `vv' = 0
+		if (`vv' >= 0) {
+			scalar `seatu' = sqrt(`vv')
 		}
 		else {
 			noi di as text "Warning: corrected ATU variance < -1e-10 for `v'; SE set to missing."
@@ -625,9 +626,9 @@ qui foreach v of varlist `varlist' {
 		return scalar seate = `seate'
 		return scalar seate_`v' = `seate'
 		if (`pscorr') {
-			return scalar seate_ai_fixed_`v' = `_seate_ai'
-			return scalar seatt_ai_fixed_`v' = `_seatt_ai'
-			return scalar seatu_ai_fixed_`v' = `_seatu_ai'
+			return scalar seate_ai_fixed_`v' = `seate_ai'
+			return scalar seatt_ai_fixed_`v' = `seatt_ai'
+			return scalar seatu_ai_fixed_`v' = `seatu_ai'
 			return scalar qA_`v'      = `_psr'[1,1]
 			return scalar qTminus_`v' = `_psr'[1,2]
 			return scalar qTplus_`v'  = `_psr'[1,3]
@@ -1071,6 +1072,8 @@ real scalar match_ties(real scalar obs, real scalar jmatch, real scalar j0, real
 }
 
 
+// ATT/ATU use the covariance decomposition of the derivative term,
+// rather than a separate full-X matching step.
 real rowvector pscorr_ai2016(
 	string scalar yvar,      string scalar selfy_var, string scalar matchy_var,
 	string scalar xvars_str, string scalar selfxvars_str,
@@ -1114,6 +1117,10 @@ real rowvector pscorr_ai2016(
 		}
 	}
 
+	if (K != K_x + (cons_pos > 0)) {
+		_error(3498, "pscorr_ai2016: X and Vgamma dimensions do not match")
+	}
+
 	// Cown_i = (ai/(ai+1)) * (X_i - selfX_i) * (Y_i - selfY_i)
 	factor = ai_val / (ai_val + 1)
 	Cown   = J(n_obs, K_x, 0)
@@ -1134,6 +1141,9 @@ real rowvector pscorr_ai2016(
 		fi  = dP[i,1]
 		pi  = PS[i,1]
 		qi  = 1 - pi
+		if (pi <= 0 | pi >= 1) {
+			_error(3498, "pscorr_ai2016: propensity score outside (0,1)")
+		}
 		tri = TR[i,1]
 
 		// average Cown over cross-arm matches (_n1..._nM)
