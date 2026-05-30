@@ -106,6 +106,7 @@ program define psmatch2, sortpreserve
 	}
 
 	// set caliper to missing (infinity) if not requested
+	local caliper_orig = `caliper'
 	if (`caliper'==0) local caliper = .
 
 	// check kerneltype
@@ -125,6 +126,49 @@ program define psmatch2, sortpreserve
 	}
 	if ("`bwidth'"=="") local bwidth "0.06"
 
+	// AI(2016) PS-estimation correction eligibility (conditions 1-16, all from syntax)
+	local do_pscorr = 0
+	local pscorr_note ""
+	if (`ai' > 0                      ///
+	    & "`population'" != ""        ///
+	    & "`ate'" != ""               ///
+	    & "`method'" == "neighbor"    ///
+	    & "`metric'" == "pscore"      ///
+	    & "`varlist'" != ""           ///
+	    & "`pscore'" == ""            ///
+	    & "`index'" == ""             ///
+	    & "`odds'" == ""              ///
+	    & "`ties'" == ""              ///
+	    & "`noreplacement'" == ""     ///
+	    & "`altvariance'" == ""       ///
+	    & `caliper_orig' <= 0         ///
+	    & "`common'" == ""            ///
+	    & `trim' == 100               ///
+	    & "`kernel'" == ""            ///
+	    & "`llr'" == ""               ///
+	    & "`radius'" == ""            ///
+	    & "`spline'" == ""            ///
+	    & "`mahalanobis'" == "") {
+	    local do_pscorr = 1
+	}
+	if (`ai' > 0 & `do_pscorr' == 0) {
+	    if ("`pscore'" != "")              local pscorr_note "pscore() was supplied"
+	    else if ("`index'" != "")          local pscorr_note "index was specified"
+	    else if ("`odds'" != "")           local pscorr_note "odds was specified"
+	    else if ("`ties'" != "")           local pscorr_note "ties was specified"
+	    else if ("`noreplacement'" != "")  local pscorr_note "noreplacement was specified"
+	    else if ("`altvariance'" != "")    local pscorr_note "altvariance was specified"
+	    else if (`caliper_orig' > 0)       local pscorr_note "caliper was specified"
+	    else if ("`common'" != "")         local pscorr_note "common was specified"
+	    else if (`trim' != 100)            local pscorr_note "trim was specified"
+	    else if ("`kernel'" != "" | "`llr'" != "" | "`radius'" != "" | "`spline'" != "" | "`mahalanobis'" != "") ///
+	                                       local pscorr_note "kernel, llr, radius, spline, or mahalanobis was specified"
+	    else if ("`population'" == "" | "`ate'" == "") ///
+	                                       local pscorr_note "population and ate are both required"
+	    else if ("`varlist'" == "")        local pscorr_note "propensity score was not estimated internally"
+	    else                               local pscorr_note "eligibility conditions not met"
+	}
+
 	// estimate propensity score
 	if ("`varlist'"!="") {
 		if ("`logit'"=="") {
@@ -136,6 +180,33 @@ program define psmatch2, sortpreserve
 		qui predict double `pscore', `index'
 		qui g double _pscore = `pscore' if `touse'
 		label var _pscore "psmatch2: Propensity Score"
+		// AI(2016) first-stage bookkeeping (condition 17 and dP)
+		if (`do_pscorr') {
+			tempname Vgamma
+			matrix `Vgamma' = e(V)
+			local gammacols : colnames `Vgamma'
+			local psxvars ""
+			foreach _gc of local gammacols {
+				if "`_gc'" != "_cons" local psxvars `psxvars' `_gc'
+			}
+			foreach x of local psxvars {
+				capture confirm variable `x'
+				if _rc {
+					local do_pscorr = 0
+					local pscorr_note "factor-variable or non-variable first-stage coefficient names"
+				}
+			}
+			if (`do_pscorr') {
+				tempvar xb_ps dP_ps
+				qui predict double `xb_ps', xb
+				if "`logit'" == "logit" {
+					qui gen double `dP_ps' = _pscore * (1 - _pscore) if `touse'
+				}
+				else {
+					qui gen double `dP_ps' = normalden(`xb_ps') if `touse'
+				}
+			}
+		}
 	}
 	else if ("`metric'"=="pscore") {
 		qui g double _pscore = `pscore' 
@@ -364,10 +435,25 @@ variable in the dataset and everything should work like before.
 					local soutvar `soutvar' _self_`v'
 				}
 			}
+			// AI(2016): same-arm matched X means, one tempvar per first-stage covariate
+			local self_outvar  "$OUTVAR"
+			local self_moutvar "`soutvar'"
+			local selfxvars ""
+			if (`do_pscorr') {
+				local xi = 0
+				foreach x of local psxvars {
+					local ++xi
+					tempvar selfx`xi'
+					qui gen double `selfx`xi'' = 0 if _support==1
+					local selfxvars `selfxvars' `selfx`xi''
+				}
+				local self_outvar  "`self_outvar' `psxvars'"
+				local self_moutvar "`self_moutvar' `selfxvars'"
+			}
 			// match controls to controls
-			mata : match_`metric'(1, `N0', 1, `N0', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`soutvar'", "`ate'")
+			mata : match_`metric'(1, `N0', 1, `N0', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "`self_outvar'", "`self_moutvar'", "`ate'")
 			// match treated to treated
-			mata : match_`metric'(`=`N0' + 1', `N', `=`N0' + 1', `N', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "$OUTVAR", "`soutvar'", "`ate'")
+			mata : match_`metric'(`=`N0' + 1', `N', `=`N0' + 1', `N', `ai', `caliper', `noreplace', `ties', "`w'", "`mahalanobis'", "`n1'", "`self_outvar'", "`self_moutvar'", "`ate'")
 		}
 	}
 	else { // llr and kernel
@@ -378,7 +464,13 @@ variable in the dataset and everything should work like before.
 	qui replace _weight = . if _weight==0 | _support==0
 
 	// generate output
-	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') `population' `altvariance' exog(`varlist')
+	local _psc_obj ""
+	if (`do_pscorr') {
+		local _psc_obj "dp(`dP_ps') xvars(`psxvars') selfxvars(`selfxvars') vgamma(`Vgamma')"
+	}
+	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') ///
+		`population' `altvariance' exog(`varlist') ///
+		pscorr(`do_pscorr') pscornote("`pscorr_note'") `_psc_obj'
 
 	// get rid of evil global
 	macro drop OUTVAR
@@ -388,7 +480,10 @@ end
 
 // FORMAT OUTPUT TABLE
 program define _mktab, rclass
-syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) Neighbor(integer 1) population altvariance exog(varlist fv)]
+syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) ///
+	Neighbor(integer 1) population altvariance exog(varlist fv) ///
+	pscorr(integer 0) pscornote(string) dp(varname) xvars(varlist) ///
+	selfxvars(varlist) vgamma(name)]
 
 // return model info
 if ("`exog'"!="") return local exog = "`exog'"
@@ -485,7 +580,51 @@ qui foreach v of varlist `varlist' {
 		scalar `seate' = .
 	}
 
-	tempname ols seols	 
+	if (`pscorr') {
+		local _seate_ai = `seate'
+		local _seatt_ai = `seatt'
+		local _seatu_ai = `seatu'
+		local _att_v = `att'
+		local _atu_v = `atu'
+		local _ate_v = `ate'
+		unab _n1list : _n1-_n`neighbor'
+		tempname _psr
+		mata: st_matrix("`_psr'", pscorr_ai2016("`v'", "_self_`v'", "_`v'", ///
+			"`xvars'", "`selfxvars'", "`dp'", "`vgamma'", "`_n1list'", ///
+			`ai', `neighbor', `N0', `N1', `_att_v', `_atu_v', `_ate_v'))
+		// ATE
+		local _vv = (`_seate_ai')^2 - `_psr'[1,1]
+		if (`_vv' >= -1e-10 & `_vv' < 0) local _vv = 0
+		if (`_vv' >= 0) {
+			scalar `seate' = sqrt(`_vv')
+		}
+		else {
+			noi di as text "Warning: corrected ATE variance < -1e-10 for `v'; SE set to missing."
+			scalar `seate' = .
+		}
+		// ATT
+		local _vv = (`_seatt_ai')^2 - `_psr'[1,2] + `_psr'[1,3]
+		if (`_vv' >= -1e-10 & `_vv' < 0) local _vv = 0
+		if (`_vv' >= 0) {
+			scalar `seatt' = sqrt(`_vv')
+		}
+		else {
+			noi di as text "Warning: corrected ATT variance < -1e-10 for `v'; SE set to missing."
+			scalar `seatt' = .
+		}
+		// ATU
+		local _vv = (`_seatu_ai')^2 - `_psr'[1,4] + `_psr'[1,5]
+		if (`_vv' >= -1e-10 & `_vv' < 0) local _vv = 0
+		if (`_vv' >= 0) {
+			scalar `seatu' = sqrt(`_vv')
+		}
+		else {
+			noi di as text "Warning: corrected ATU variance < -1e-10 for `v'; SE set to missing."
+			scalar `seatu' = .
+		}
+	}
+
+	tempname ols seols
 	qui regress `v' _treated
 	scalar `ols' = _b[_treated]
 	scalar `seols' = _se[_treated]
@@ -513,16 +652,33 @@ qui foreach v of varlist `varlist' {
 		return scalar seatu_`v' = `seatu'
 		return scalar seate = `seate'
 		return scalar seate_`v' = `seate'
+		if (`pscorr') {
+			return scalar seate_ai_fixed_`v' = `_seate_ai'
+			return scalar seatt_ai_fixed_`v' = `_seatt_ai'
+			return scalar seatu_ai_fixed_`v' = `_seatu_ai'
+			return scalar qA_`v'      = `_psr'[1,1]
+			return scalar qTminus_`v' = `_psr'[1,2]
+			return scalar qTplus_`v'  = `_psr'[1,3]
+			return scalar qUminus_`v' = `_psr'[1,4]
+			return scalar qUplus_`v'  = `_psr'[1,5]
+		}
 	}
-	
+
 }
 
-if (`ai'==0) { 
+if (`ai'==0) {
 	if (`seatt' != .) di as text "Note: S.E. does not take into account that the propensity score is estimated."
+}
+else if (`pscorr') {
+	di as text "Note: Population S.E. with Abadie-Imbens correction for estimated propensity scores."
 }
 else {
 	if ("`population'"=="") di as text "Note: Sample S.E."
 	else di as text "Note: Population S.E."
+	if ("`pscornote'"!="") {
+		di as text "Note: S.E. treats the estimated propensity score as fixed."
+		di as text "Note: Estimated-score correction not applied: `pscornote'."
+	}
 }
 
 tab _treated _support
@@ -943,6 +1099,152 @@ real scalar match_ties(real scalar obs, real scalar jmatch, real scalar j0, real
 		dif = abs(PSCORE[obs] - PSCORE[i])
 	}
 	return(nmatch)
+}
+
+
+real rowvector pscorr_ai2016(
+	string scalar yvar,      string scalar selfy_var, string scalar matchy_var,
+	string scalar xvars_str, string scalar selfxvars_str,
+	string scalar dp_var,    string scalar vgamma_name,
+	string scalar n1vars_str,
+	real scalar ai_val,      real scalar M,
+	real scalar N0,          real scalar N1,
+	real scalar att_val,     real scalar atu_val,   real scalar ate_val)
+{
+	real matrix Y, selfY, matchY, X, selfX, dP, PS, TR, SP, N1mat, VG
+	string matrix cstripe
+	real scalar n_obs, K, K_x, cons_pos, factor, i, k, m, mid, n_matches
+	real scalar fi, pi, qi, tri, mu1_i, mu0_i, aT_i, aU_i
+	real matrix Cown, Cother, C1, C0, Cfull1, Cfull0, Xfull
+	real matrix cA, cT, dT_vec, cU, dU_vec
+	real scalar qA, qTminus, qTplus, qUminus, qUplus
+
+	st_view(Y=., .,      yvar)
+	st_view(selfY=., .,  selfy_var)
+	st_view(matchY=., ., matchy_var)
+	st_view(X=., .,      tokens(xvars_str))
+	st_view(selfX=., .,  tokens(selfxvars_str))
+	st_view(dP=., .,     dp_var)
+	st_view(PS=., .,     "_pscore")
+	st_view(TR=., .,     "_treated")
+	st_view(SP=., .,     "_support")
+	st_view(N1mat=., .,  tokens(n1vars_str))
+
+	VG    = st_matrix(vgamma_name)
+	K     = cols(VG)
+	K_x   = cols(tokens(xvars_str))
+	n_obs = rows(Y)
+
+	// locate _cons column in Vgamma
+	cstripe  = st_matrixcolstripe(vgamma_name)
+	cons_pos = 0
+	for (k = 1; k <= K; k++) {
+		if (cstripe[k, 2] == "_cons") {
+			cons_pos = k
+			break
+		}
+	}
+
+	// Cown_i = (ai/(ai+1)) * (X_i - selfX_i) * (Y_i - selfY_i)
+	factor = ai_val / (ai_val + 1)
+	Cown   = J(n_obs, K_x, 0)
+	for (i = 1; i <= n_obs; i++) {
+		if (SP[i,1] != 1) continue
+		Cown[i,.] = factor :* (X[i,.] - selfX[i,.]) :* (Y[i,1] - selfY[i,1])
+	}
+
+	cA     = J(1, K, 0)
+	cT     = J(1, K, 0)
+	dT_vec = J(1, K, 0)
+	cU     = J(1, K, 0)
+	dU_vec = J(1, K, 0)
+
+	for (i = 1; i <= n_obs; i++) {
+		if (SP[i,1] != 1) continue
+
+		fi  = dP[i,1]
+		pi  = PS[i,1]
+		qi  = 1 - pi
+		tri = TR[i,1]
+
+		// average Cown over cross-arm matches (_n1..._nM)
+		n_matches = 0
+		Cother = J(1, K_x, 0)
+		for (m = 1; m <= M; m++) {
+			mid = N1mat[i, m]
+			if (mid >= .) continue
+			n_matches++
+			Cother = Cother + Cown[mid,.]
+		}
+		if (n_matches == 0) _error(3498, "pscorr_ai2016: no match IDs for obs " + strofreal(i))
+		Cother = Cother / n_matches
+
+		if (tri == 1) {
+			C1 = Cown[i,.]
+			C0 = Cother
+		}
+		else {
+			C0 = Cown[i,.]
+			C1 = Cother
+		}
+
+		// insert _cons slot: 0 in Cfull, 1 in Xfull
+		if (cons_pos == 0) {
+			Cfull1 = C1
+			Cfull0 = C0
+			Xfull  = X[i,.]
+		}
+		else if (cons_pos == 1) {
+			Cfull1 = (0, C1)
+			Cfull0 = (0, C0)
+			Xfull  = (1, X[i,.])
+		}
+		else if (cons_pos == K) {
+			Cfull1 = (C1, 0)
+			Cfull0 = (C0, 0)
+			Xfull  = (X[i,.], 1)
+		}
+		else {
+			Cfull1 = (C1[1,1..cons_pos-1], 0, C1[1,cons_pos..K_x])
+			Cfull0 = (C0[1,1..cons_pos-1], 0, C0[1,cons_pos..K_x])
+			Xfull  = (X[i,1..cons_pos-1],  1, X[i,cons_pos..K_x])
+		}
+
+		// ATE
+		cA = cA + fi :* (Cfull1 :/ pi + Cfull0 :/ qi)
+
+		// local means for ATT/ATU
+		if (tri == 1) {
+			mu1_i = selfY[i,1]
+			mu0_i = matchY[i,1]
+		}
+		else {
+			mu0_i = selfY[i,1]
+			mu1_i = matchY[i,1]
+		}
+
+		aT_i = mu1_i - mu0_i - att_val
+		aU_i = mu1_i - mu0_i - atu_val
+
+		cT     = cT     + fi :* (Xfull :* aT_i + Cfull1 + (pi/qi) :* Cfull0)
+		dT_vec = dT_vec + fi :* (Xfull :* aT_i + Cfull1 - Cfull0)
+		cU     = cU     + fi :* (Xfull :* aU_i - Cfull0 - (qi/pi) :* Cfull1)
+		dU_vec = dU_vec + fi :* (Xfull :* aU_i + Cfull1 - Cfull0)
+	}
+
+	cA     = cA     :/ (N0 + N1)
+	cT     = cT     :/ N1
+	dT_vec = dT_vec :/ N1
+	cU     = cU     :/ N0
+	dU_vec = dU_vec :/ N0
+
+	qA      = (cA     * VG * cA')[1,1]
+	qTminus = (cT     * VG * cT')[1,1]
+	qTplus  = (dT_vec * VG * dT_vec')[1,1]
+	qUminus = (cU     * VG * cU')[1,1]
+	qUplus  = (dU_vec * VG * dU_vec')[1,1]
+
+	return((qA, qTminus, qTplus, qUminus, qUplus))
 }
 
 
