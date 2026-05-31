@@ -20,8 +20,6 @@ net install psmatch2, from(https://raw.githubusercontent.com/eleuven/psmatch2/ma
 net install psmatch2, from(https://raw.githubusercontent.com/eleuven/psmatch2/master/versions/v4.0.12) replace
 ```
 
-Future releases should add a frozen copy under `versions/vX.Y.Z/` so older versions remain installable with `net install`.
-
 ## Citation
 
 Thanks for citing psmatch2 as follows:
