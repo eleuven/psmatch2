@@ -474,6 +474,13 @@ di as text "{hline 28}{c TT}{hline 59}"
 di as text "        Variable     Sample {c |}    Treated     Controls   Difference         S.E.   T-stat"
 di as text "{hline 28}{c +}{hline 59}"
 
+// r(table) setup
+tempname RTAB C
+local coleq ""
+local colnm ""
+local _level = c(level)
+local _crit  = invnormal(1 - (100 - `_level') / 200)
+
 // create body and return results
 qui foreach v of varlist `varlist' {
 	// no matched outcome for obs off support
@@ -597,6 +604,55 @@ qui foreach v of varlist `varlist' {
 		}
 	}
 
+	// build r(table) columns for this outcome
+	matrix `C' = J(9, 1, .)
+	matrix `C'[1,1] = `att'
+	matrix `C'[2,1] = `seatt'
+	if (`seatt' < . & `seatt' > 0) {
+		local _z = `att' / `seatt'
+		matrix `C'[3,1] = `_z'
+		matrix `C'[4,1] = 2 * normal(-abs(`_z'))
+		matrix `C'[5,1] = `att' - `_crit' * `seatt'
+		matrix `C'[6,1] = `att' + `_crit' * `seatt'
+	}
+	matrix `C'[8,1] = `_crit'
+	matrix `C'[9,1] = 0
+	matrix `RTAB' = nullmat(`RTAB'), `C'
+	local coleq "`coleq' `v'"
+	local colnm "`colnm' ATT"
+	if ("`ate'" != "") {
+		matrix `C' = J(9, 1, .)
+		matrix `C'[1,1] = `atu'
+		matrix `C'[2,1] = `seatu'
+		if (`seatu' < . & `seatu' > 0) {
+			local _z = `atu' / `seatu'
+			matrix `C'[3,1] = `_z'
+			matrix `C'[4,1] = 2 * normal(-abs(`_z'))
+			matrix `C'[5,1] = `atu' - `_crit' * `seatu'
+			matrix `C'[6,1] = `atu' + `_crit' * `seatu'
+		}
+		matrix `C'[8,1] = `_crit'
+		matrix `C'[9,1] = 0
+		matrix `RTAB' = nullmat(`RTAB'), `C'
+		local coleq "`coleq' `v'"
+		local colnm "`colnm' ATU"
+		matrix `C' = J(9, 1, .)
+		matrix `C'[1,1] = `ate'
+		matrix `C'[2,1] = `seate'
+		if (`seate' < . & `seate' > 0) {
+			local _z = `ate' / `seate'
+			matrix `C'[3,1] = `_z'
+			matrix `C'[4,1] = 2 * normal(-abs(`_z'))
+			matrix `C'[5,1] = `ate' - `_crit' * `seate'
+			matrix `C'[6,1] = `ate' + `_crit' * `seate'
+		}
+		matrix `C'[8,1] = `_crit'
+		matrix `C'[9,1] = 0
+		matrix `RTAB' = nullmat(`RTAB'), `C'
+		local coleq "`coleq' `v'"
+		local colnm "`colnm' ATE"
+	}
+
 	tempname ols seols
 	qui regress `v' _treated
 	scalar `ols' = _b[_treated]
@@ -638,6 +694,11 @@ qui foreach v of varlist `varlist' {
 	}
 
 }
+
+matrix rownames `RTAB' = b se z pvalue ll ul df crit eform
+matrix coleq    `RTAB' = `coleq'
+matrix colnames `RTAB' = `colnm'
+return matrix table = `RTAB'
 
 if (`ai'==0) {
 	if (`seatt' != .) di as text "Note: S.E. does not take into account that the propensity score is estimated."
