@@ -168,42 +168,51 @@ The following list presents the syntax for each matching method.
 {title:Sample weights}
 
 {pstd}
-{cmd:psmatch2} allows weights in some calculations, but it is not a full
-survey-design estimator. The command does not implement design-based variance
-estimation for complex surveys, and the reported standard errors should not be
-interpreted as survey-adjusted standard errors.
+{cmd:psmatch2} estimates the propensity score in the unweighted analysis
+sample and uses the estimated score to construct matches. Sampling weights
+enter after matching when the matched outcomes or matched treatment effects
+are averaged over a target population.
 
 {pstd}
-How sampling weights should be used depends on the target estimand. If the goal
-is a sample ATT, sampling weights need not define the estimand. If the goal is
-a population ATT, ATU, or ATE, sampling weights are part of the definition of
-the target population and should generally be used when estimating
-treatment-effect averages and assessing balance.
+For a sample ATT, the unweighted matched average defines the estimand. For a
+population ATT, ATU, or ATE, sampling weights define how matched outcomes or
+matched treatment effects are averaged over the target population.
 
 {pstd}
-There is no single rule for whether sampling weights should enter the
-propensity-score model. In practice, analysts should estimate the propensity
-score and choose the matching specification so that the weighted covariate
-distributions are balanced for the target population. Including the sampling
-weights in the propensity-score model may matter when the sampling design
-contains information not captured by the covariates. It may matter less when
-the covariates and matching specification already achieve good weighted
-balance.
-
-{pstd}
-For a population ATT after matching, the weights used to average outcomes
-should refer to the treated population. A common calculation is to compare the
-weighted mean of the observed treated outcome with the weighted mean of the
-matched counterfactual outcome among treated observations on support:
+For a population ATT, use the sampling weights for the treated population. A
+common calculation compares the weighted mean of the observed treated outcome
+with the weighted mean of the matched counterfactual outcome among treated
+observations on support:
 
 {phang2}{cmd:. sum outcome if treated==1 & _support==1 [aw=pweight]}{p_end}
 {phang2}{cmd:. sum _outcome if treated==1 & _support==1 [aw=pweight]}{p_end}
 
 {pstd}
-For population ATU or ATE, the corresponding averaging weights should match the
-target population. Users working with complex survey data should use
-survey-design methods outside {cmd:psmatch2} when design-based inference is
-required.
+The difference between these two weighted means is the population-weighted ATT
+computed from the matched outcomes left behind by {cmd:psmatch2}.
+
+{pstd}
+For a population ATU, use the sampling weights for the untreated population
+and compare the weighted mean of {cmd:_outcome} with the weighted mean of
+{cmd:outcome} among untreated observations on support.
+
+{pstd}
+For a population ATE, average the matched individual treatment effects over all
+observations on support using the sampling weights. One direct calculation is:
+
+{phang2}{cmd:. gen double _te = cond(_treated==1, outcome - _outcome, _outcome - outcome) if _support==1}{p_end}
+{phang2}{cmd:. sum _te if _support==1 [aw=pweight]}{p_end}
+
+{pstd}
+For population estimands, assess covariate balance using the sampling weights.
+If weighted balance is poor, change the propensity-score specification or the
+matching rule, for example by adding sampling-design variables or interactions
+to the propensity-score model.
+
+{pstd}
+The reported standard errors correspond to the matching variance formulas
+described above. Design-based inference for complex survey samples requires a
+separate variance calculation.
 
 {title:Matching within strata}
 
