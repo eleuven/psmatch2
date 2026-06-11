@@ -762,7 +762,7 @@ matrix colnames `RTAB' = `colnm'
 return matrix table = `RTAB'
 
 if (`ai'==0) {
-	if (`seatt' != .) di as text "Note: S.E. treats the propensity score as fixed."
+	if (`seatt' != .) di as text "Note: S.E. does not take into account that the propensity score is estimated. Use ai(#) for Abadie-Imbens analytical matching standard errors."
 }
 else if (`pscorr') {
 	di as text "Note: Population AI S.E. adjusted for estimated propensity scores."
@@ -771,7 +771,7 @@ else {
 	if ("`samplevar'"!="") di as text "Note: Sample AI S.E."
 	else di as text "Note: Population AI S.E."
 	if (`psfixnote') {
-		di as text "Note: AI S.E. treats the propensity score as fixed."
+		di as text "Note: AI S.E. does not take into account that the propensity score is estimated for this specification."
 	}
 }
 
