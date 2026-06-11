@@ -762,7 +762,10 @@ matrix colnames `RTAB' = `colnm'
 return matrix table = `RTAB'
 
 if (`ai'==0) {
-	if (`seatt' != .) di as text "Note: S.E. does not take into account that the propensity score is estimated. Use ai(#) for Abadie-Imbens analytical matching standard errors."
+	if (`seatt' != .) {
+		di as text "Note: S.E. does not take into account that the propensity score is estimated."
+		di as text "      Use ai(#) for Abadie-Imbens analytical matching standard errors."
+	}
 }
 else if (`pscorr') {
 	di as text "Note: Population AI S.E. adjusted for estimated propensity scores."
