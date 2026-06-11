@@ -89,23 +89,23 @@ When the propensity score is estimated internally (probit or logit),
 which adjusts the AI standard errors to account for the additional information in the estimated score.
 The correction is not applied when the propensity score is supplied via {cmd:pscore()}, when factor variables appear
 in the first-stage model, or when {cmd:samplevar}, {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or {cmd:altvariance} are specified.
+With {cmd:samplevar}, the variance convention conditions on the realized sample, and the estimated
+propensity score is treated as fixed.
 Option {cmd:ate} controls whether ATU and ATE are reported; it does not determine the ATT standard error.
+{cmd:psmatch2} stores the standard error of the ATT in {it:r(seatt)}. With option {cmd:ate},
+it also stores the standard errors of the ATU and ATE in {it:r(seatu)} and {it:r(seate)}.
+With more than one outcome variable, outcome-specific results are stored as
+{it:r(seatt_varname)}, {it:r(seatu_varname)}, and {it:r(seate_varname)}.
 
 {pstd}
-{cmd:psmatch2} stores the estimate of the treatment effect on the treated in {it:r(att)}, this allows
-bootstrapping of the standard error of the estimate (although it is unclear whether the bootstrap is valid in this context). 
-This can be done as follows:
-
-    {inp: . bootstrap r(att) : psmatch2 training age gender, out(wage)}
-
-{pstd}
-If the average treatment is requested using option {it:ate} the estimate is returned
-in {it:r(ate)}. The average treatment effect on the untreated is then also returned in {it:r(atu)}.
-With more than one outcome variable the effects are returned as r(att_{it:varname}) etc. for each
-outcome variable and effect.
+{cmd:psmatch2} stores the estimate of the treatment effect on the treated in {it:r(att)}.
+If option {cmd:ate} is specified, the ATE and ATU are returned in {it:r(ate)} and {it:r(atu)}.
+With more than one outcome variable, effects and standard errors are returned as
+{it:r(att_varname)}, {it:r(seatt_varname)}, etc. for each outcome variable and effect.
 
 {pstd}
-See the documentation of {help bootstrap} for more details about bootstrapping in Stata.
+Bootstrapping nearest-neighbor matching estimators is generally not recommended. Use
+{cmd:ai(}{it:#}{cmd:)} for Abadie-Imbens analytical matching standard errors.
 
 {pstd}
 If you want to be able to replicate your results you should set {help seed}
@@ -397,6 +397,8 @@ By default, {cmd:ai()} estimates the marginal variance of the matching estimator
 which adds a component for treatment effect heterogeneity across covariate values.
 Specify {cmd:samplevar} to estimate the conditional variance instead (Theorem 6 of AI 2006),
 which conditions on the observed covariates and treatment assignments.
+Under this convention, the estimated propensity score is treated as fixed, so the AI(2016)
+first-stage correction is not applied.
 
 {pmore}
 For Mahalanobis matching ({cmd:mahal()}), the AI(2006) standard errors are returned directly.
@@ -544,6 +546,7 @@ becomes matching on a quadratic metric with the specified weighting matrix.
 {synopt:{cmd:r(seate)}}standard error of ATE (with {cmd:ate}){p_end}
 {synopt:{cmd:r(atu)}}average treatment effect on the untreated (with {cmd:ate}){p_end}
 {synopt:{cmd:r(seatu)}}standard error of ATU (with {cmd:ate}){p_end}
+{synopt:{cmd:r(table)}}Stata-style results table with rows {cmd:b}, {cmd:se}, {cmd:z}, {cmd:pvalue}, {cmd:ll}, {cmd:ul}, {cmd:df}, {cmd:crit}, and {cmd:eform}{p_end}
 
 {pstd}
 With multiple outcome variables, estimates are also returned as {cmd:r(att_}{it:varname}{cmd:)} etc. for each outcome.
