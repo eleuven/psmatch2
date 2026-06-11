@@ -119,9 +119,8 @@ fact that the propensity score is estimated rather than known.
 
 {pstd}
 The AI(2016) correction is not applied when the propensity score is supplied
-with {cmd:pscore()}, when factor variables appear in the first-stage model, or
-when {cmd:samplevar}, {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or
-{cmd:altvariance} is specified.
+with {cmd:pscore()} or when {cmd:samplevar}, {cmd:caliper}, {cmd:ties},
+{cmd:noreplacement}, or {cmd:altvariance} is specified.
 
 {pstd}
 Bootstrapping nearest-neighbor matching estimators is generally not
@@ -450,7 +449,7 @@ For propensity-score nearest-neighbor matching with an internally estimated
 probit or logit score, {cmd:ai()} additionally applies the Abadie-Imbens
 (2016) correction for first-stage score estimation when the correction is
 available. The correction is not applied when the score is supplied with
-{cmd:pscore()}, when factor variables appear in the first-stage model, or when
+{cmd:pscore()} or when
 {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, {cmd:altvariance},
 {cmd:common}, {cmd:index}, {cmd:odds}, {cmd:samplevar}, {cmd:kernel},
 {cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} is specified.

@@ -163,19 +163,20 @@ program define psmatch2, sortpreserve
 		if (`do_pscorr') {
 			tempname Vgamma
 			matrix `Vgamma' = e(V)
-			local gammacols : colnames `Vgamma'
-			local psxvars ""
-			foreach _gc of local gammacols {
-				if "`_gc'" != "_cons" local psxvars `psxvars' `_gc'
-			}
-			foreach x of local psxvars {
-				capture confirm variable `x'
-				if _rc {
-					local do_pscorr = 0
-					local psfix_note = 1
-				}
-			}
+
+			// AI(2016) correction uses the actual first-stage design columns.
+			// Use coefficient names from e(b), not the raw user varlist.  This
+			// also handles factor-variable notation and interactions because
+			// Mata's st_view() can materialize columns such as 3.rep78 or
+			// 3.rep78#c.mpg from the dataset.  The constant is kept in Vgamma
+			// but excluded from psxvars because pscorr_ai2016() adds it
+			// internally.
+			local psxvars : colnames e(b)
+			local cons _cons
+			local psxvars : list psxvars - cons
+
 			if (`do_pscorr') {
+				matrix `Vgamma' = e(V)
 				tempvar xb_ps dP_ps
 				qui predict double `xb_ps', xb
 				if "`logit'" == "logit" {
@@ -478,7 +479,7 @@ end
 program define _mktab, rclass
 syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) ///
 	Neighbor(integer 1) samplevar altvariance exog(varlist fv) ///
-	pscorr(integer 0) psfixnote(integer 0) dp(varname) xvars(varlist) ///
+	pscorr(integer 0) psfixnote(integer 0) dp(varname) xvars(string asis) ///
 	selfxvars(varlist) vgamma(name)]
 
 if (`pscorr') unab _n1list : _n1-_n`neighbor'
