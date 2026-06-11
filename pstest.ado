@@ -1,5 +1,5 @@
-*! version 4.2.2 25apr2017 E. Leuven, B. Sianesi
-program define pstest
+*! version 4.2.3 11jun2026 E. Leuven, B. Sianesi
+program define pstest, rclass
 	version 11.0
 	#delimit ;
 	syntax [varlist(default=none fv)] [if] [in] [,
@@ -77,7 +77,10 @@ program define pstest
 		else {
 			capture confirm var _weight
 			if (!_rc) qui g double `weight' = _weight
-			else di as error "Error: provide weight"
+			else {
+				di as error "Error: provide matching weights with option mweight()"
+				exit 198
+			}
 		}
 	}
 	else g double `weight' = `mweight'
@@ -93,9 +96,11 @@ program define pstest
 
 	if ("`density'"=="" & "`box'"=="" & "`both'"!="") {
 		breduc  `varlist' , touse(`touse') mw(`weight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' `scatter' options("`options'") `rubin'
+		return add
 	}
 	if ("`density'"=="" & "`box'"=="" & "`both'"=="") {
 		breduc1 `varlist' , touse(`touse') mw(`weight') tr(`treated') sup(`support') `notable' `dist' `label' `graph' `hist' `scatter' options("`options'") `rubin' `onlysig' `raw'
+		return add
 	}
 	if ("`density'"!="" | "`box'"!="") {
 		plotvar `varlist' , touse(`touse') `raw' `both' mw(`weight') tr(`treated') sup(`support') `density' `box' `outlier' options("`options'") 

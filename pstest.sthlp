@@ -125,16 +125,28 @@ imbalance in terms of these two indicators.
 {p 4 4 2}One only need type {cmd:pstest[, both]} directly after {cmd:psmatch2} to inspect the extent of covariate balancing
 in matched samples if {cmd:psmatch2} has been called with a {it:varlist}.
 
-{p 4 4 2}If option {cmd:both} is specified, {cmd:pstest} returns the following diagnostics of
-covariate balancing before and after matching: {it:r(meanbiasbef)} and {it:r(meanbiasaft)} the mean absolute standardised bias;  
-{it:r(medbiasbef)} and {it:r(medbiasaft)} the median absolute standardised bias;  
-{it:r(r2bef)} and {it:r(r2aft)} the pseudo R2 from probit estimation; 
-{it:r(chiprobbef)} and {it:r(chiprobaft)} the P-value of the likelihood-ratio test;	{it:r(Bbef)} and {it:r(Baft)} Rubin's B; and 
-{it:r(Rbef)} and {it:r(Raft)} Rubin's R. If the two groups
-are compared only once (matched samples as default or two unmatched samples if option {cmd:raw} is specified),
-{cmd:pstest} returns {it:r(meanbias)}, {it:r(medbias)}, {it:r(r2)}, {it:r(chiprob)}, {it:r(B)} and {it:r(R)}.
-{cmd:pstest} always returns in {it:r(exog)} the names of the variables for which it has tested
-the extent of balancing.
+{title:Saved results}
+
+{p 4 4 2}If option {cmd:both} is specified, {cmd:pstest} returns the following diagnostics
+before and after matching:
+
+{p 8 12 2}{cmd:r(meanbiasbef)} and {cmd:r(meanbiasaft)}: mean absolute standardized bias;{p_end}
+{p 8 12 2}{cmd:r(medbiasbef)} and {cmd:r(medbiasaft)}: median absolute standardized bias;{p_end}
+{p 8 12 2}{cmd:r(r2bef)} and {cmd:r(r2aft)}: pseudo-R2 from probit estimation;{p_end}
+{p 8 12 2}{cmd:r(chiprobbef)} and {cmd:r(chiprobaft)}: p-values from the likelihood-ratio tests;{p_end}
+{p 8 12 2}{cmd:r(Bbef)} and {cmd:r(Baft)}: Rubin's B;{p_end}
+{p 8 12 2}{cmd:r(Rbef)} and {cmd:r(Raft)}: Rubin's R.{p_end}
+
+{p 4 4 2}If the two groups are compared only once, either for matched samples by default
+or for unmatched samples with option {cmd:raw}, {cmd:pstest} returns
+{cmd:r(meanbias)}, {cmd:r(medbias)}, {cmd:r(r2)}, {cmd:r(chiprob)},
+{cmd:r(B)}, and {cmd:r(R)}.
+
+{p 4 4 2}{cmd:pstest} always returns {cmd:r(exog)}, the covariates for which balance
+was assessed.
+
+{p 4 4 2}The density and box-plot syntax is graphical only and does not return balance
+diagnostics.
 
 {title:Description - Syntax to assess balancing of individual continuous covariates}
 
@@ -284,7 +296,9 @@ to quickly assess how randomisation has worked.
 If option {cmd:raw} is not specified, default is _treated left behind from the latest {cmd:psmatch2} call.
 
 {p 4 8 2}{cmdab:mw:eight}{cmd:(}{it:varname}{cmd:)} Weight of matches.
-If option {cmd:raw} is not specified, default is _weight left behind from the latest {cmd:psmatch2} call.
+If option {cmd:raw} is not specified, the default is {cmd:_weight} left behind
+from the latest {cmd:psmatch2} call. If {cmd:_weight} is not present, specify
+matching weights with option {cmd:mweight()}.
 
 {p 4 8 2}{cmdab:sup:port}{cmd:(}{it:varname}{cmd:)} Common support indicator (0/1).
 If option {cmd:raw} is not specified, default is _support left behind from the latest {cmd:psmatch2} call.
