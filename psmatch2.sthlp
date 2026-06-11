@@ -72,11 +72,12 @@ when {it:M}>0 is passed using option {cmd:ai(}{it:M}{cmd:)}, where {it:M} is the
 to estimate the conditional outcome variance σ²(X,W) (their formula (14)).
 By default the marginal, or population, variance of the estimator is reported (Theorem 7).
 With option {cmd:samplevar}, the conditional/sample variance is reported instead (Theorem 6).
-When the propensity score is estimated internally (probit or logit) and option {cmd:ate} is specified,
+When the propensity score is estimated internally (probit or logit),
 {cmd:psmatch2} automatically applies the Abadie and Imbens (2016) correction for first-stage score estimation,
 which adjusts the AI standard errors to account for the additional information in the estimated score.
 The correction is not applied when the propensity score is supplied via {cmd:pscore()}, when factor variables appear
 in the first-stage model, or when {cmd:samplevar}, {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or {cmd:altvariance} are specified.
+Option {cmd:ate} controls whether ATU and ATE are reported; it does not determine the ATT standard error.
 
 {pstd}
 {cmd:psmatch2} stores the estimate of the treatment effect on the treated in {it:r(att)}, this allows
@@ -392,12 +393,12 @@ For Mahalanobis matching ({cmd:mahal()}), the AI(2006) standard errors are retur
 For propensity score matching, when all of the following hold, {cmd:psmatch2} additionally applies
 the Abadie and Imbens (2016) correction for first-stage estimation of the propensity score:
 the score is estimated internally (not via {cmd:pscore()}),
-option {cmd:ate} is specified,
 and none of {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, {cmd:altvariance}, {cmd:common}, {cmd:index},
 {cmd:odds}, {cmd:samplevar}, {cmd:kernel}, {cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} are specified.
 The ATE correction is weakly negative in variance. For ATT and ATU, the correction can increase or decrease the SE.
-When the correction fires, the note "Population S.E. adjusted for estimated propensity scores" is printed.
+When the correction fires, the note "Population AI S.E. adjusted for estimated propensity scores" is printed.
 When propensity-score AI standard errors are reported without the correction, SEs treat the score as fixed.
+The option {cmd:ate} determines whether ATU and ATE are displayed and returned. It does not determine whether the ATT first-stage correction is applied.
 
 {pmore}
 Implementation note. For ATT and ATU, Abadie and Imbens (2016, p. 799) estimate
