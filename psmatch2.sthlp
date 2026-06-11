@@ -111,11 +111,11 @@ Under {cmd:samplevar}, the variance convention conditions on the realized
 matching sample, and the estimated propensity score is treated as fixed.
 
 {pstd}
-When the propensity score is estimated internally by probit or logit,
-{cmd:psmatch2} applies the Abadie-Imbens (2016) correction for first-step
-score estimation whenever the correction is available. This correction adjusts
-the analytical AI standard errors for the fact that the propensity score is
-estimated rather than known.
+When the propensity score is estimated internally by probit or logit and
+{cmd:ai()} is specified, {cmd:psmatch2} applies the Abadie-Imbens (2016)
+correction for first-step score estimation whenever the correction is
+available. This correction adjusts the analytical AI standard errors for the
+fact that the propensity score is estimated rather than known.
 
 {pstd}
 The AI(2016) correction is not applied when the propensity score is supplied
@@ -427,30 +427,36 @@ The estimates are returned in {it:r(ate)}, {it:r(atu)} and {it:r(att)} respectiv
 
 {phang}
 {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
-calculate the heteroskedasticity-consistent analytical standard errors
+with nearest-neighbor matching, calculate the Abadie-Imbens analytical
+standard errors
 proposed by Abadie and Imbens (2006) by specifying the number of neighbors {it:M} used
 to estimate the conditional outcome variance σ²(X,W) (their formula (14)). With option {cmdab:altv:ariance} one can
 use the estimator of Abadie et al. (2004) instead.
 
 {pmore}
-By default, {cmd:ai()} estimates the marginal variance of the matching estimator (Theorem 7 of AI 2006),
-which adds a component for treatment effect heterogeneity across covariate values.
-Specify {cmd:samplevar} to estimate the conditional variance instead (Theorem 6 of AI 2006),
-which conditions on the observed covariates and treatment assignments.
-Under this convention, the estimated propensity score is treated as fixed, so the AI(2016)
-first-stage correction is not applied.
+By default, {cmd:ai()} reports the marginal, or population, variance of the
+matching estimator (Theorem 7 of Abadie and Imbens 2006), which adds a
+component for treatment-effect heterogeneity across covariate values. Specify
+{cmd:samplevar} to report the conditional/sample variance instead (Theorem 6),
+which conditions on the realized matching sample. Under {cmd:samplevar}, the
+estimated propensity score is treated as fixed, so the AI(2016) first-stage
+correction is not applied.
 
 {pmore}
 For Mahalanobis matching ({cmd:mahal()}), the AI(2006) standard errors are returned directly.
 
 {pmore}
-For propensity score matching, when all of the following hold, {cmd:psmatch2} additionally applies
-the Abadie and Imbens (2016) correction for first-stage estimation of the propensity score:
-the score is estimated internally (not via {cmd:pscore()}),
-and none of {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, {cmd:altvariance}, {cmd:common}, {cmd:index},
-{cmd:odds}, {cmd:samplevar}, {cmd:kernel}, {cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} are specified.
+For propensity-score nearest-neighbor matching with an internally estimated
+probit or logit score, {cmd:ai()} additionally applies the Abadie-Imbens
+(2016) correction for first-stage score estimation when the correction is
+available. The correction is not applied when the score is supplied with
+{cmd:pscore()}, when factor variables appear in the first-stage model, or when
+{cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, {cmd:altvariance},
+{cmd:common}, {cmd:index}, {cmd:odds}, {cmd:samplevar}, {cmd:kernel},
+{cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} is specified.
 The ATE correction is weakly negative in variance. For ATT and ATU, the correction can increase or decrease the SE.
-The option {cmd:ate} determines whether ATU and ATE are displayed and returned. It does not determine whether the ATT first-stage correction is applied.
+The option {cmd:ate} determines whether ATU and ATE are displayed and returned.
+It does not determine whether the ATT first-stage correction is applied.
 
 {pmore}
 Implementation note. For ATT and ATU, Abadie and Imbens (2016, p. 799) estimate
@@ -468,14 +474,17 @@ displayed in their paper.
 
 {phang}
 {cmdab:samplevar}
-When using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, report the conditional/sample variance of the matching
-estimator (Theorem 6 of Abadie and Imbens 2006) rather than the marginal, or population, variance
-(Theorem 7, the default). The population variance adds a component for treatment effect heterogeneity,
-V^τ(X), on top of the conditional variance.
+when using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, report the conditional/sample
+variance of the matching estimator (Theorem 6 of Abadie and Imbens 2006)
+rather than the marginal, or population, variance (Theorem 7, the default).
+The population variance adds a component for treatment-effect heterogeneity,
+V^τ(X), on top of the conditional variance. Under {cmd:samplevar}, the
+estimated propensity score is treated as fixed and the AI(2016) correction is
+not applied.
 
 {phang}
 {cmdab:altv:ariance}
-When using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, calculate the conditional variance using the expression in Abadie et al. (2004, p.303).
+when using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, calculate the conditional variance using the expression in Abadie et al. (2004, p.303).
 
 {title:Options: Estimation of the propensity score}
 
@@ -589,10 +598,13 @@ becomes matching on a quadratic metric with the specified weighting matrix.
 {synopt:{cmd:r(table)}}Stata-style results table with rows {cmd:b}, {cmd:se}, {cmd:z}, {cmd:pvalue}, {cmd:ll}, {cmd:ul}, {cmd:df}, {cmd:crit}, and {cmd:eform}{p_end}
 
 {pstd}
-With multiple outcome variables, estimates are also returned as {cmd:r(att_}{it:varname}{cmd:)} etc. for each outcome.
+With multiple outcome variables, effects and standard errors are also returned
+as outcome-specific scalars such as {cmd:r(att_}{it:varname}{cmd:)},
+{cmd:r(seatt_}{it:varname}{cmd:)}, {cmd:r(ate_}{it:varname}{cmd:)}, and
+{cmd:r(seate_}{it:varname}{cmd:)}.
 
 {pstd}
-When the Abadie-Imbens (2016) first-stage correction fires (see {cmd:ai()} above), the following
+When the Abadie-Imbens (2016) first-stage correction fires, the following
 additional scalars are returned for each outcome variable {it:y}:
 
 {synoptset 28 tabbed}{...}
