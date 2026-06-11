@@ -516,14 +516,14 @@ qui foreach v of varlist `varlist' {
 		g `w' = max(_weight, 0)
 		// AI (2006, eq14 p. 250), or Aetal (2004, p303)
 		g `shat' = cond("`altvariance'" == "", (`ai' / (`ai' + 1)) * (`v' - _self_`v')^2, _self_`v')
-		if ("`population'" == "") { // AI. p.245-246
+		if ("`population'" == "") { // AI (2006) Theorem 6 p.250: conditional variance
 			g `VhatEt' = `shat' * (_treated - (1 - _treated) * `w')^2
 			if ("`ate'" != "") {
 				g `VhatEu' = `shat' * ((1 - _treated) - _treated * `w')^2
 				g `VhatE'  = `shat' * (1 + `w')^2
 			}
 		}
-		else {  // AI p.251
+		else {  // AI (2006) Theorem 7 p.251: marginal variance
 			g `VhatEt' = max(0, _treated * (`v' - _`v' - `att')^2) ///
 				+ (1 - _treated) * (`w'^2 - `w' / `neighbor') * `shat'
 			if ("`ate'" != "") {
