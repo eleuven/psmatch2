@@ -575,22 +575,47 @@ qui foreach v of varlist `varlist' {
 		}
 	}
 	else { // calculate approx s.e.'s
-		tempname wtot var1 var0 number
-		tempvar w2
-		
-		sum `v' if _treated==1 & _support==1  
+		tempname wtot var1 var0 wtot_t wtot_ate_t wtot_ate_c
+		tempvar w2 w2_t w2_ate
+
+		sum `v' if _treated==1 & _support==1
 		scalar `var1'   = r(Var)
-		sum `v' if _treated==0 & _weight<.
+		sum `v' if _treated==0 & _support==1
 		scalar `var0'   = r(Var)
-		gen `w2' = _weight^2 if _treated==0
-		sum `w2'
+
+		gen double `w2' = _weight^2 if _treated==0 & _support==1
+		sum `w2', meanonly
 		scalar `wtot' = r(sum)
+
 		if ("`spline'"!="") | ("`llr'"!="" & "`kerneltype'"=="tricube")   {
 			scalar `seatt' = .
 		}
 		else scalar `seatt' = sqrt(`var1'/`N1' + `var0'*`wtot'/`N1'^2)
-		scalar `seatu' = .
-		scalar `seate' = .
+
+		if ("`ate'"!="") {
+			gen double `w2_t' = _weight^2 if _treated==1 & _support==1
+			sum `w2_t', meanonly
+			scalar `wtot_t' = r(sum)
+
+			gen double `w2_ate' = (1 + _weight)^2 if _support==1
+			sum `w2_ate' if _treated==1 & _support==1, meanonly
+			scalar `wtot_ate_t' = r(sum)
+			sum `w2_ate' if _treated==0 & _support==1, meanonly
+			scalar `wtot_ate_c' = r(sum)
+
+			if ("`spline'"!="") | ("`llr'"!="" & "`kerneltype'"=="tricube") {
+				scalar `seatu' = .
+				scalar `seate' = .
+			}
+			else {
+				scalar `seatu' = sqrt(`var0'/`N0' + `var1'*`wtot_t'/`N0'^2)
+				scalar `seate' = sqrt((`var1'*`wtot_ate_t' + `var0'*`wtot_ate_c') / (`N0' + `N1')^2)
+			}
+		}
+		else {
+			scalar `seatu' = .
+			scalar `seate' = .
+		}
 	}
 
 	if (`pscorr') {
