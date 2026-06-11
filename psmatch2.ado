@@ -468,6 +468,12 @@ if (`pscorr') unab _n1list : _n1-_n`neighbor'
 
 // return model info
 if ("`exog'"!="") return local exog = "`exog'"
+return scalar ai = `ai'
+if (`ai' > 0) {
+	return local ai_vartype = cond("`samplevar'" != "", "sample", "population")
+	return scalar ai_pscorr = `pscorr'
+	if (`pscorr') return local ai_pscorr_method "AI2016_ps_decomposition"
+}
 
 if ("`varlist'"!="") {
 	return local depvar = "`varlist'"
