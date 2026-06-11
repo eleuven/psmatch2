@@ -20,6 +20,7 @@ help for {hi:psmatch2}
     {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
     {cmd:samplevar}
     {cmdab:altv:ariance}
+    {cmd:debug}
     {cmd:kernel}
     {cmd:llr}
     {cmdab:k:erneltype}{cmd:(}{it:type}{cmd:)}
@@ -472,6 +473,12 @@ The option {cmd:ate} determines whether ATU and ATE are displayed and returned.
 It does not determine whether the ATT first-stage correction is applied.
 
 {pmore}
+With option {cmd:debug}, {cmd:psmatch2} returns additional diagnostic
+components of the AI(2016) correction: the AI(2006) standard errors before the
+first-stage correction and the correction terms. These returns are intended for
+testing and reproducibility checks.
+
+{pmore}
 Implementation note. For ATT and ATU, Abadie and Imbens (2016, p. 799) estimate
 the derivative of the target parameter with respect to the propensity-score
 parameter by matching on the full covariate vector. {cmd:psmatch2} instead uses
@@ -484,6 +491,12 @@ means are computed leave-one-out. Thus the ATT and ATU first-stage corrections
 are plug-in implementations of the Abadie-Imbens population correction, but the
 derivative component is not the literal full-covariate matching estimator
 displayed in their paper.
+
+{phang}
+{cmd:debug}
+return additional diagnostic components of the Abadie-Imbens (2016)
+first-stage correction. These include the AI(2006) standard errors before the
+correction and the correction components.
 
 {phang}
 {cmdab:samplevar}
@@ -617,16 +630,31 @@ as outcome-specific scalars such as {cmd:r(att_}{it:varname}{cmd:)},
 {cmd:r(seate_}{it:varname}{cmd:)}.
 
 {pstd}
-When the Abadie-Imbens (2016) first-stage correction fires, the following
-additional scalars are returned for each outcome variable {it:y}:
+With option {cmd:debug}, when the Abadie-Imbens (2016) first-stage correction
+fires, the following additional scalars are returned for each outcome variable
+{it:y}:
 
 {synoptset 28 tabbed}{...}
-{synopt:{cmd:r(seatt_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATT before the AI(2016) correction{p_end}
-{synopt:{cmd:r(qTminus_}{it:y}{cmd:)}, {cmd:r(qTplus_}{it:y}{cmd:)}}ATT correction terms: first-stage covariance term and derivative term{p_end}
-{synopt:{cmd:r(seate_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATE before the correction (with {cmd:ate}){p_end}
-{synopt:{cmd:r(seatu_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATU before the correction (with {cmd:ate}){p_end}
-{synopt:{cmd:r(qA_}{it:y}{cmd:)}}correction term for ATE (with {cmd:ate}): {cmd:r(seate)}^2 = {cmd:r(seate_ai_fixed_}{it:y}{cmd:)}^2 - {cmd:r(qA_}{it:y}{cmd:)}{p_end}
-{synopt:{cmd:r(qUminus_}{it:y}{cmd:)}, {cmd:r(qUplus_}{it:y}{cmd:)}}ATU correction terms: first-stage covariance term and derivative term (with {cmd:ate}){p_end}
+{synopt:{cmd:r(seatt_ai_fixed_}{it:y}{cmd:)}}AI(2006) ATT SE before the AI(2016) correction{p_end}
+{synopt:{cmd:r(qTminus_}{it:y}{cmd:)}}ATT first-stage covariance correction{p_end}
+{synopt:{cmd:r(qTplus_}{it:y}{cmd:)}}ATT derivative correction{p_end}
+{synopt:{cmd:r(seate_ai_fixed_}{it:y}{cmd:)}}AI(2006) ATE SE before the AI(2016) correction; returned with {cmd:ate}{p_end}
+{synopt:{cmd:r(qA_}{it:y}{cmd:)}}ATE first-stage correction; returned with {cmd:ate}{p_end}
+{synopt:{cmd:r(seatu_ai_fixed_}{it:y}{cmd:)}}AI(2006) ATU SE before the AI(2016) correction; returned with {cmd:ate}{p_end}
+{synopt:{cmd:r(qUminus_}{it:y}{cmd:)}}ATU first-stage covariance correction; returned with {cmd:ate}{p_end}
+{synopt:{cmd:r(qUplus_}{it:y}{cmd:)}}ATU derivative correction; returned with {cmd:ate}{p_end}
+
+{pstd}
+The adjusted variances satisfy
+
+{phang2}{cmd:r(seatt_}{it:y}{cmd:)^2 = r(seatt_ai_fixed_}{it:y}{cmd:)^2 - r(qTminus_}{it:y}{cmd:) + r(qTplus_}{it:y}{cmd:)}{p_end}
+
+{pstd}
+With {cmd:ate}, the corresponding identities are
+
+{phang2}{cmd:r(seate_}{it:y}{cmd:)^2 = r(seate_ai_fixed_}{it:y}{cmd:)^2 - r(qA_}{it:y}{cmd:)}{p_end}
+
+{phang2}{cmd:r(seatu_}{it:y}{cmd:)^2 = r(seatu_ai_fixed_}{it:y}{cmd:)^2 - r(qUminus_}{it:y}{cmd:) + r(qUplus_}{it:y}{cmd:)}{p_end}
 
 {title:Examples}
 

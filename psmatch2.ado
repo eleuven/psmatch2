@@ -18,6 +18,7 @@ program define psmatch2, sortpreserve
 	AI(integer 0)
 	SAMPLEVar
 	ALTVariance
+	DEBUG
 	TRIM(real 100)
 	ODDS
 	LOGIT
@@ -450,9 +451,11 @@ variable in the dataset and everything should work like before.
 	if (`do_pscorr') {
 		local _psc_obj "dp(`dP_ps') xvars(`psxvars') selfxvars(`selfxvars') vgamma(`Vgamma')"
 	}
+	local debugflag = ("`debug'" != "")
+
 	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') ///
 		`samplevar' `altvariance' exog(`varlist') ///
-		pscorr(`do_pscorr') psfixnote(`psfix_note') `_psc_obj'
+		pscorr(`do_pscorr') psfixnote(`psfix_note') debug(`debugflag') `_psc_obj'
 
 	// If AI(2016) was computed for ATT-only output, the control-to-treated
 	// matches were needed internally for the variance correction. Do not leave
@@ -480,7 +483,7 @@ program define _mktab, rclass
 syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) ///
 	Neighbor(integer 1) samplevar altvariance exog(varlist fv) ///
 	pscorr(integer 0) psfixnote(integer 0) dp(varname) xvars(string asis) ///
-	selfxvars(varlist) vgamma(name)]
+	selfxvars(varlist) vgamma(name) debug(integer 0)]
 
 if (`pscorr') unab _n1list : _n1-_n`neighbor'
 
@@ -732,9 +735,11 @@ qui foreach v of varlist `varlist' {
 	return scalar seatt_`v' = `seatt'
 
 	if (`pscorr') {
-		return scalar seatt_ai_fixed_`v' = `seatt_ai'
-		return scalar qTminus_`v' = `_psr'[1,2]
-		return scalar qTplus_`v'  = `_psr'[1,3]
+		if (`debug') {
+			return scalar seatt_ai_fixed_`v' = `seatt_ai'
+			return scalar qTminus_`v' = `_psr'[1,2]
+			return scalar qTplus_`v'  = `_psr'[1,3]
+		}
 	}
 
 	if ("`ate'"!="") {
@@ -747,11 +752,13 @@ qui foreach v of varlist `varlist' {
 		return scalar seate = `seate'
 		return scalar seate_`v' = `seate'
 		if (`pscorr') {
-			return scalar seate_ai_fixed_`v' = `seate_ai'
-			return scalar seatu_ai_fixed_`v' = `seatu_ai'
-			return scalar qA_`v'      = `_psr'[1,1]
-			return scalar qUminus_`v' = `_psr'[1,4]
-			return scalar qUplus_`v'  = `_psr'[1,5]
+			if (`debug') {
+				return scalar seate_ai_fixed_`v' = `seate_ai'
+				return scalar seatu_ai_fixed_`v' = `seatu_ai'
+				return scalar qA_`v'      = `_psr'[1,1]
+				return scalar qUminus_`v' = `_psr'[1,4]
+				return scalar qUplus_`v'  = `_psr'[1,5]
+			}
 		}
 	}
 

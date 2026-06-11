@@ -191,7 +191,7 @@ drop _ps_ext4
 // eligible run
 tempfile _t4log
 log using "`_t4log'", text replace name(t4log)
-psmatch2 treat x1 x2, outcome(y1) ate ai(1)
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) debug
 scalar _t4_qA       = r(qA_y1)
 scalar _t4_qTminus  = r(qTminus_y1)
 scalar _t4_qTplus   = r(qTplus_y1)
@@ -234,7 +234,7 @@ di as text "  PASS: probit eligible — qA>=0, seate corrected, point estimates 
 
 di as text _n "=== Test 5: SE identity ==="
 // data still in memory from Test 4
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1)
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) debug
 
 if (r(seate) < .) {
     assert abs(r(seate)^2 - (r(seate_ai_fixed_y1)^2 - r(qA_y1))) < 1e-10
@@ -257,7 +257,7 @@ di as text _n "=== Test 6: Eligible logit ==="
 set seed 606
 _dgp2 400
 
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) logit
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) logit debug
 assert r(qA_y1) >= -1e-10
 assert r(qA_y1) < .
 assert r(seate) <= r(seate_ai_fixed_y1) + 1e-8
@@ -273,7 +273,7 @@ di as text _n "=== Test 7: Multiple outcomes ==="
 set seed 707
 _dgp2 400
 
-qui psmatch2 treat x1 x2, outcome(y1 y2) ate ai(1)
+qui psmatch2 treat x1 x2, outcome(y1 y2) ate ai(1) debug
 assert r(qA_y1) >= -1e-10
 assert r(qA_y2) >= -1e-10
 assert r(qA_y1) < .
@@ -295,7 +295,7 @@ set seed 808
 _dgp2 300
 gen x_cat = ceil(3 * runiform())
 
-qui psmatch2 treat i.x_cat x2, outcome(y1) ate ai(1)
+qui psmatch2 treat i.x_cat x2, outcome(y1) ate ai(1) debug
 assert r(qA_y1) >= -1e-10
 assert r(qA_y1) < .
 assert r(ate) < .
@@ -356,7 +356,7 @@ di as text _n "=== Test 10: neighbor()>1 and ai()>1 ==="
 set seed 1010
 _dgp2 500
 
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(2) neighbor(3)
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(2) neighbor(3) debug
 scalar _t10_att = r(att)
 scalar _t10_atu = r(atu)
 scalar _t10_ate = r(ate)
@@ -411,7 +411,7 @@ gen double idx = 0.7*x1
 gen treat = (rnormal() < idx)
 gen y1 = x1 + treat + rnormal()
 
-qui psmatch2 treat x1, outcome(y1) ate ai(1)
+qui psmatch2 treat x1, outcome(y1) ate ai(1) debug
 di as text "  qA = " as result %9.3g r(qA_y1)
 assert r(qA_y1) >= -1e-10
 assert r(qA_y1) < 1e-5
