@@ -16,7 +16,6 @@ program define psmatch2, sortpreserve
 	BWidth(string)
 	COMmon
 	AI(integer 0)
-	POPulation
 	SAMPLEVar
 	ALTVariance
 	TRIM(real 100)
@@ -128,9 +127,8 @@ program define psmatch2, sortpreserve
 	if ("`bwidth'"=="") local bwidth "0.06"
 
 	// AI variance convention:
-	// population is now the default. samplevar requests the old
-	// conditional/sample variance convention. population is retained as
-	// a backward-compatible no-op.
+	// population/marginal variance is the default. samplevar requests
+	// the conditional/sample variance convention.
 	local use_population = ("`samplevar'" == "")
 
 	// AI(2016): internal pscore NN, population AI
@@ -448,7 +446,7 @@ variable in the dataset and everything should work like before.
 		local _psc_obj "dp(`dP_ps') xvars(`psxvars') selfxvars(`selfxvars') vgamma(`Vgamma')"
 	}
 	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') ///
-		`population' `samplevar' `altvariance' exog(`varlist') ///
+		`samplevar' `altvariance' exog(`varlist') ///
 		pscorr(`do_pscorr') psfixnote(`psfix_note') `_psc_obj'
 
 	// get rid of evil global
@@ -460,7 +458,7 @@ end
 // FORMAT OUTPUT TABLE
 program define _mktab, rclass
 syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) ///
-	Neighbor(integer 1) population samplevar altvariance exog(varlist fv) ///
+	Neighbor(integer 1) samplevar altvariance exog(varlist fv) ///
 	pscorr(integer 0) psfixnote(integer 0) dp(varname) xvars(varlist) ///
 	selfxvars(varlist) vgamma(name)]
 

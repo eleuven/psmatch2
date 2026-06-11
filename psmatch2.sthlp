@@ -18,7 +18,6 @@ help for {hi:psmatch2}
     {cmdab:cal:iper}{cmd:(}{it:real}{cmd:)}
     {cmdab:mahal:anobis}{cmd:(}{it:varlist}{cmd:)}
     {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
-    {cmdab:pop:ulation}
     {cmd:samplevar}
     {cmdab:altv:ariance}
     {cmd:kernel}
@@ -311,8 +310,7 @@ for all the treated:
     {cmdab:mahal:anobis}{cmd:(}{it:varlist}{cmd:)}
     {cmdab:out:come}{cmd:(}{it:varlist}{cmd:)}
     {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
-    [{cmdab:pop:ulation}
-    {cmd:samplevar}
+    [{cmd:samplevar}
     {cmdab:altv:ariance}
     {cmdab:k:ernel}{cmd:(}{it:kernel_type}{cmd:)}
     {cmd:llr}
@@ -414,11 +412,6 @@ means are computed leave-one-out. Thus the ATT and ATU first-stage corrections
 are plug-in implementations of the Abadie-Imbens population correction, but the
 derivative component is not the literal full-covariate matching estimator
 displayed in their paper.
-
-{phang}
-{cmdab:pop:ulation}
-Retained for backward compatibility. Population standard errors are now the default when using
-{cmdab:ai}{cmd:(}{it:integer}{cmd:)}. Specifying {cmd:population} therefore has no effect.
 
 {phang}
 {cmdab:samplevar}
