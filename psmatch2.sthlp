@@ -165,40 +165,42 @@ You can open the dialog by {dialog psmatch2:clicking here} or by typing
 {pstd}
 The following list presents the syntax for each matching method.
 
-{title:Sample weights}
+{title:Weights}
 
 {pstd}
 {cmd:psmatch2} estimates the propensity score in the unweighted analysis
-sample and uses the estimated score to construct matches. Sample weights
-can be used after matching to compute matched outcomes or matched treatment effects
-for a target population.
+sample and uses the estimated score to construct matches. Weights can be
+applied after matching to average matched outcomes or matched treatment effects
+for a differently weighted target population.
 
 {pstd}
-For a population ATT, compare the weighted mean of the observed treated outcome
-with the weighted mean of the matched counterfactual outcome among treated
-observations on support:
+For an ATT for a target treated population, compare the weighted mean of the
+observed treated outcome with the weighted mean of the matched counterfactual
+outcome among treated observations on support:
 
-{phang2}{cmd:. sum outcome if treated==1 & _support==1 [aw=pweight]}{p_end}
-{phang2}{cmd:. sum _outcome if treated==1 & _support==1 [aw=pweight]}{p_end}
-
-{pstd}
-The difference between these two weighted means is the population-weighted ATT
-computed from the matched outcomes left behind by {cmd:psmatch2}.
+{phang2}{cmd:. sum outcome if treated==1 & _support==1 [aw=w]}{p_end}
+{phang2}{cmd:. sum _outcome if treated==1 & _support==1 [aw=w]}{p_end}
 
 {pstd}
-For a population ATU, use the sampling weights for the untreated population
-and compare the weighted mean of {cmd:_outcome} with the weighted mean of
-{cmd:outcome} among untreated observations on support.
+The difference between these two weighted means is the ATT for the target
+treated population, computed from the matched outcomes left behind by
+{cmd:psmatch2}.
 
 {pstd}
-For a population ATE, average the matched individual treatment effects over all
-observations on support using the sampling weights. One direct calculation is:
+For an ATU for a target untreated population, compare the weighted mean of
+{cmd:_outcome} with the weighted mean of {cmd:outcome} among untreated
+observations on support.
+
+{pstd}
+For an ATE for a target population, average the matched individual treatment
+effects over all observations on support using the weights. One direct
+calculation is:
 
 {phang2}{cmd:. gen double _te = cond(_treated==1, outcome - _outcome, _outcome - outcome) if _support==1}{p_end}
-{phang2}{cmd:. sum _te if _support==1 [aw=pweight]}{p_end}
+{phang2}{cmd:. sum _te if _support==1 [aw=w]}{p_end}
 
 {pstd}
-For weighted estimands, assess covariate balance using the sampling weights.
+For weighted estimands, assess covariate balance using the weights.
 If weighted balance is poor, change the propensity-score specification or the
 matching rule, for example by adding sampling-design variables or interactions
 to the propensity-score model.
