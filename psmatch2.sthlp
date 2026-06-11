@@ -43,88 +43,128 @@ help for {hi:psmatch2}
 {title:Description}
 
 {pstd}
-{cmd:psmatch2} implements full Mahalanobis matching and a variety of propensity score matching methods
-to adjust for pre-treatment observable differences between a group of treated and a group of untreated.
-Treatment status is identified by {it:depvar}==1 for the treated and {it:depvar}==0 for the untreated observations.
+{cmd:psmatch2} implements Mahalanobis matching and several propensity-score
+matching estimators. The command compares treated and untreated observations
+after adjusting for pre-treatment observed covariates. Treatment status is
+defined by {it:depvar}=1 for treated observations and {it:depvar}=0 for
+untreated observations.
+
+{pstd}
+The propensity score is the conditional probability of treatment. It may be
+supplied by the user with {cmd:pscore()} or estimated internally from
+{it:indepvars} by probit or logit. Matching methods include nearest-neighbor
+matching, k-nearest-neighbor matching, caliper matching, radius matching,
+kernel matching, local linear regression matching, spline smoothing, and
+Mahalanobis matching.
+
+{pstd}
+{cmd:psmatch2} is being continuously improved. To install the most recent SSC
+version, type
+
+{phang2}{cmd:. ssc install psmatch2, replace}{p_end}
+
+{title:Standard errors}
+
+{pstd}
+By default, {cmd:psmatch2} reports approximate standard errors that treat the
+matching weights as fixed. These standard errors assume independent
+observations, homoskedastic outcome variances within the treated and untreated
+groups, and outcome variances that do not vary with the propensity score. They
+also do not account for estimation of the propensity score.
+
+{pstd}
+For the ATT, the default standard error is
+
+{phang2}
+SE(ATT) = sqrt( Var(Y|DM=1)/N1 + Var(Y|DM=0)*sum(w_i^2; i in DM=0)/N1^2 )
 {p_end}
 
 {pstd}
-{cmd:psmatch2} is being continuously improved and developed. Make sure to keep your version up-to-date as follows
+where N1 is the number of matched treated observations, DM=1 denotes the
+matched treated sample, DM=0 denotes the matched controls, and w_i is the
+number of times control observation i is used as a match. With option
+{cmd:ate}, analogous formulas are used for the ATU and ATE:
 
-    {inp: . ssc install psmatch2, replace}
+{phang2}
+SE(ATU) = sqrt( Var(Y|DM=0)/N0 + Var(Y|DM=1)*sum(w_i^2; i in DM=1)/N0^2 )
+{p_end}
 
-{pstd}
-By default {cmd:psmatch2} calculates approximate standard errors on the treatment effects assuming independent
-observations, fixed weights, homoskedasticity of the outcome variable within the treated and within the control
-groups and that the variance of the outcome does not depend on the propensity score.
-For the ATT:
-
-{pstd}
-SE(ATT) = sqrt( Var(Y|DM=1)/N1 + Var(Y|DM=0)*Sum(w_i^2; i in DM=0)/N1^2 )
-
-{pstd}
-where N1 is the number of matched treated, DM=1 denotes the matched treated, DM=0 the matched controls, and
-w_i is the number of times control i is used as a match.
-With option {cmd:ate}, analogous formulas are used for ATU and ATE:
+{phang2}
+SE(ATE) = sqrt( [ Var(Y|DM=1)*sum((1+w_i)^2; i in DM=1) + Var(Y|DM=0)*sum((1+w_i)^2; i in DM=0) ] / (N0+N1)^2 )
+{p_end}
 
 {pstd}
-SE(ATU) = sqrt( Var(Y|DM=0)/N0 + Var(Y|DM=1)*Sum(w_i^2; i in DM=1)/N0^2 )
+where N0 is the number of matched controls and w_i is the number of times each
+observation is used as a match by the opposite treatment arm.
 
 {pstd}
-SE(ATE) = sqrt( [ Var(Y|DM=1)*Sum((1+w_i)^2; i in DM=1) + Var(Y|DM=0)*Sum((1+w_i)^2; i in DM=0) ] / (N0+N1)^2 )
+For nearest-neighbor matching, analytical Abadie-Imbens (2006) standard errors
+are available with {cmd:ai(}{it:M}{cmd:)}, where {it:M}>0. The value {it:M} is
+the number of neighbors used to estimate the conditional outcome variance
+σ²(X,W), as in their formula (14).
 
 {pstd}
-where N0 is the number of matched controls and w_i is the number of times each unit is used as a match by the opposite arm.
-{cmd:psmatch2} stores the standard error of the ATT in {it:r(seatt)} or, with more than one outcome variable, in {it:r(seatt_varname)}.
-Use {cmd:ai(}{it:#}{cmd:)} for Abadie-Imbens analytical standard errors.
+By default, {cmd:ai()} reports the marginal, or population, variance of the
+matching estimator (Theorem 7 of Abadie and Imbens 2006). Specify
+{cmd:samplevar} to report the conditional/sample variance instead (Theorem 6).
+Under {cmd:samplevar}, the variance convention conditions on the realized
+matching sample, and the estimated propensity score is treated as fixed.
 
 {pstd}
-With nearest neighbor matching, analytical standard errors as in Abadie and Imbens (2006) are calculated
-when {it:M}>0 is passed using option {cmd:ai(}{it:M}{cmd:)}, where {it:M} is the number of neighbors used
-to estimate the conditional outcome variance σ²(X,W) (their formula (14)).
-By default the marginal, or population, variance of the estimator is reported (Theorem 7).
-With option {cmd:samplevar}, the conditional/sample variance is reported instead (Theorem 6).
-When the propensity score is estimated internally (probit or logit),
-{cmd:psmatch2} automatically applies the Abadie and Imbens (2016) correction for first-stage score estimation,
-which adjusts the AI standard errors to account for the additional information in the estimated score.
-The correction is not applied when the propensity score is supplied via {cmd:pscore()}, when factor variables appear
-in the first-stage model, or when {cmd:samplevar}, {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or {cmd:altvariance} are specified.
-With {cmd:samplevar}, the variance convention conditions on the realized sample, and the estimated
-propensity score is treated as fixed.
-Option {cmd:ate} controls whether ATU and ATE are reported; it does not determine the ATT standard error.
-{cmd:psmatch2} stores the standard error of the ATT in {it:r(seatt)}. With option {cmd:ate},
-it also stores the standard errors of the ATU and ATE in {it:r(seatu)} and {it:r(seate)}.
-With more than one outcome variable, outcome-specific results are stored as
-{it:r(seatt_varname)}, {it:r(seatu_varname)}, and {it:r(seate_varname)}.
+When the propensity score is estimated internally by probit or logit,
+{cmd:psmatch2} applies the Abadie-Imbens (2016) correction for first-step
+score estimation whenever the correction is available. This correction adjusts
+the analytical AI standard errors for the fact that the propensity score is
+estimated rather than known.
 
 {pstd}
-{cmd:psmatch2} stores the estimate of the treatment effect on the treated in {it:r(att)}.
-If option {cmd:ate} is specified, the ATE and ATU are returned in {it:r(ate)} and {it:r(atu)}.
-With more than one outcome variable, effects and standard errors are returned as
-{it:r(att_varname)}, {it:r(seatt_varname)}, etc. for each outcome variable and effect.
+The AI(2016) correction is not applied when the propensity score is supplied
+with {cmd:pscore()}, when factor variables appear in the first-stage model, or
+when {cmd:samplevar}, {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or
+{cmd:altvariance} is specified.
 
 {pstd}
-Bootstrapping nearest-neighbor matching estimators is generally not recommended. Use
-{cmd:ai(}{it:#}{cmd:)} for Abadie-Imbens analytical matching standard errors.
+Bootstrapping nearest-neighbor matching estimators is generally not
+recommended. Use {cmd:ai(}{it:M}{cmd:)} for Abadie-Imbens analytical matching
+standard errors.
+
+{title:Returned results}
 
 {pstd}
-If you want to be able to replicate your results you should set {help seed}
-before calling {cmd:psmatch2}.
+{cmd:psmatch2} stores the ATT in {cmd:r(att)} and its standard error in
+{cmd:r(seatt)}. With option {cmd:ate}, it also stores the ATU and ATE in
+{cmd:r(atu)} and {cmd:r(ate)}, with standard errors in {cmd:r(seatu)} and
+{cmd:r(seate)}. With more than one outcome variable, outcome-specific results
+are stored as {cmd:r(att_}{it:varname}{cmd:)},
+{cmd:r(seatt_}{it:varname}{cmd:)}, and similarly for ATU and ATE.
 
 {pstd}
-The propensity score - the conditional treatment probability - is either directly provided by the
-user or estimated by the program on the {it:indepvars}. Note that the sort order of your data could affect the
-results when using nearest-neighbor matching on a propensity score estimated with categorical (non-continuous)
-variables. Or more in general when there are untreated with identical propensity scores.
+{cmd:psmatch2} also stores {cmd:r(table)}, a Stata-style results table with
+rows {cmd:b}, {cmd:se}, {cmd:z}, {cmd:pvalue}, {cmd:ll}, {cmd:ul}, {cmd:df},
+{cmd:crit}, and {cmd:eform}. The columns identify the reported outcome-effect
+combinations.
 
 {pstd}
-Matching methods to choose from are one-to-one (nearest neighbour or within caliper;
-with or without replacement), {it:k}-nearest neighbors, radius, kernel, local linear regression,
-'spline-smoothing' and Mahalanobis matching. The following list presents the syntax for each method.
+Option {cmd:ate} controls which treatment-effect parameters are reported. It
+does not determine the standard error for the ATT. Thus, when the AI(2016)
+correction is available, the ATT standard error is the same whether or not
+{cmd:ate} is specified.
+
+{title:Replication and ties}
 
 {pstd}
-You can also click {dialog psmatch2:here} to pop up a {dialog psmatch2:dialog} or type
-{inp: db psmatch2}.
+To make results replicable, set the random-number seed before calling
+{cmd:psmatch2}. The sort order of the data may affect nearest-neighbor matching
+when there are ties in the propensity score, for example when the propensity
+score is estimated from categorical covariates.
+
+{pstd}
+You can open the dialog by {dialog psmatch2:clicking here} or by typing
+
+{phang2}{cmd:. db psmatch2}{p_end}
+
+{pstd}
+The following list presents the syntax for each matching method.
 
 {title:About sample weights}
 
