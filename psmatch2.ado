@@ -774,7 +774,7 @@ else {
 	if ("`samplevar'"!="") di as text "Note: Sample AI S.E."
 	else di as text "Note: Population AI S.E."
 	if (`psfixnote') {
-		di as text "Note: AI S.E. does not take into account that the propensity score is estimated for this specification."
+		di as text "Note: AI S.E. does not take into account that the propensity score is estimated because the AI(2016) correction is not available for this specification."
 	}
 }
 
