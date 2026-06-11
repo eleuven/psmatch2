@@ -102,7 +102,7 @@ program define psmatch2, sortpreserve
 
 	//
 	if (`ai' > 0 & !("`method'" == "neighbor")) {
-		di as error "Option -ai- only allowed when doing nearest neighbor matching on the covariates (Mahalanobis)"
+		di as error "Option -ai- only allowed with nearest-neighbor matching"
 		exit 198
 	}
 
