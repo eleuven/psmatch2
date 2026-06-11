@@ -17,6 +17,7 @@ program define psmatch2, sortpreserve
 	COMmon
 	AI(integer 0)
 	POPulation
+	SAMPLEVar
 	ALTVariance
 	TRIM(real 100)
 	ODDS
@@ -126,9 +127,15 @@ program define psmatch2, sortpreserve
 	}
 	if ("`bwidth'"=="") local bwidth "0.06"
 
+	// AI variance convention:
+	// population is now the default. samplevar requests the old
+	// conditional/sample variance convention. population is retained as
+	// a backward-compatible no-op.
+	local use_population = ("`samplevar'" == "")
+
 	// AI(2016): internal pscore NN, population AI
 	local do_pscorr = (`ai' > 0                                      ///
-		& "`population'" != ""                                       ///
+		& `use_population'                                           ///
 		& "`ate'" != ""                                              ///
 		& "`method'" == "neighbor"                                   ///
 		& "`metric'" == "pscore"                                     ///
@@ -441,7 +448,7 @@ variable in the dataset and everything should work like before.
 		local _psc_obj "dp(`dP_ps') xvars(`psxvars') selfxvars(`selfxvars') vgamma(`Vgamma')"
 	}
 	_mktab `outcome', `ate' `spline' `llr' k(`kerneltype') ai(`ai') n(`neighbor') ///
-		`population' `altvariance' exog(`varlist') ///
+		`population' `samplevar' `altvariance' exog(`varlist') ///
 		pscorr(`do_pscorr') psfixnote(`psfix_note') `_psc_obj'
 
 	// get rid of evil global
@@ -453,7 +460,7 @@ end
 // FORMAT OUTPUT TABLE
 program define _mktab, rclass
 syntax [varlist(default=none)] [, ate spline llr Kerneltype(string) ai(integer 0) ///
-	Neighbor(integer 1) population altvariance exog(varlist fv) ///
+	Neighbor(integer 1) population samplevar altvariance exog(varlist fv) ///
 	pscorr(integer 0) psfixnote(integer 0) dp(varname) xvars(varlist) ///
 	selfxvars(varlist) vgamma(name)]
 
@@ -516,7 +523,7 @@ qui foreach v of varlist `varlist' {
 		g `w' = max(_weight, 0)
 		// AI (2006, eq14 p. 250), or Aetal (2004, p303)
 		g `shat' = cond("`altvariance'" == "", (`ai' / (`ai' + 1)) * (`v' - _self_`v')^2, _self_`v')
-		if ("`population'" == "") { // AI (2006) Theorem 6 p.250: conditional variance
+		if ("`samplevar'" != "") { // AI (2006) Theorem 6 p.250: conditional/sample variance
 			g `VhatEt' = `shat' * (_treated - (1 - _treated) * `w')^2
 			if ("`ate'" != "") {
 				g `VhatEu' = `shat' * ((1 - _treated) - _treated * `w')^2
@@ -707,7 +714,7 @@ else if (`pscorr') {
 	di as text "Note: Population S.E. adjusted for estimated propensity scores."
 }
 else {
-	if ("`population'"=="") di as text "Note: Sample S.E."
+	if ("`samplevar'"!="") di as text "Note: Sample S.E."
 	else di as text "Note: Population S.E."
 	if (`psfixnote') di as text "Note: S.E. treats the propensity score as fixed."
 }

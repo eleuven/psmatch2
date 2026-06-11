@@ -19,6 +19,7 @@ help for {hi:psmatch2}
     {cmdab:mahal:anobis}{cmd:(}{it:varlist}{cmd:)}
     {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
     {cmdab:pop:ulation}
+    {cmd:samplevar}
     {cmdab:altv:ariance}
     {cmd:kernel}
     {cmd:llr}
@@ -70,13 +71,13 @@ in {it:r(seatt)} or with more than one outcome variable, in {it:r(seatt_varname)
 With nearest neighbor matching, analytical standard errors as in Abadie and Imbens (2006) are calculated
 when {it:M}>0 is passed using option {cmd:ai(}{it:M}{cmd:)}, where {it:M} is the number of neighbors used
 to estimate the conditional outcome variance σ²(X,W) (their formula (14)).
-By default the conditional variance of the estimator is reported (Theorem 6); with option {cmd:population}
-the marginal variance is reported instead (Theorem 7).
-When the propensity score is estimated internally (probit or logit) and options {cmd:population} and {cmd:ate} are specified,
+By default the marginal, or population, variance of the estimator is reported (Theorem 7).
+With option {cmd:samplevar}, the conditional/sample variance is reported instead (Theorem 6).
+When the propensity score is estimated internally (probit or logit) and option {cmd:ate} is specified,
 {cmd:psmatch2} automatically applies the Abadie and Imbens (2016) correction for first-stage score estimation,
 which adjusts the AI standard errors to account for the additional information in the estimated score.
 The correction is not applied when the propensity score is supplied via {cmd:pscore()}, when factor variables appear
-in the first-stage model, or when {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or {cmd:altvariance} are specified.
+in the first-stage model, or when {cmd:samplevar}, {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, or {cmd:altvariance} are specified.
 
 {pstd}
 {cmd:psmatch2} stores the estimate of the treatment effect on the treated in {it:r(att)}, this allows
@@ -311,6 +312,7 @@ for all the treated:
     {cmdab:out:come}{cmd:(}{it:varlist}{cmd:)}
     {cmdab:ai}{cmd:(}{it:integer}{cmd:)}
     [{cmdab:pop:ulation}
+    {cmd:samplevar}
     {cmdab:altv:ariance}
     {cmdab:k:ernel}{cmd:(}{it:kernel_type}{cmd:)}
     {cmd:llr}
@@ -380,10 +382,10 @@ to estimate the conditional outcome variance σ²(X,W) (their formula (14)). Wit
 use the estimator of Abadie et al. (2004) instead.
 
 {pmore}
-By default, {cmd:ai()} estimates the conditional variance of the matching estimator (Theorem 6 of AI 2006),
-which conditions on the observed covariates and treatment assignments.
-With option {cmdab:pop:ulation}, the marginal variance is estimated instead (Theorem 7 of AI 2006),
+By default, {cmd:ai()} estimates the marginal variance of the matching estimator (Theorem 7 of AI 2006),
 which adds a component for treatment effect heterogeneity across covariate values.
+Specify {cmd:samplevar} to estimate the conditional variance instead (Theorem 6 of AI 2006),
+which conditions on the observed covariates and treatment assignments.
 
 {pmore}
 For Mahalanobis matching ({cmd:mahal()}), the AI(2006) standard errors are returned directly.
@@ -392,9 +394,9 @@ For Mahalanobis matching ({cmd:mahal()}), the AI(2006) standard errors are retur
 For propensity score matching, when all of the following hold, {cmd:psmatch2} additionally applies
 the Abadie and Imbens (2016) correction for first-stage estimation of the propensity score:
 the score is estimated internally (not via {cmd:pscore()}),
-options {cmd:population} and {cmd:ate} are both specified,
+option {cmd:ate} is specified,
 and none of {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, {cmd:altvariance}, {cmd:common}, {cmd:index},
-{cmd:odds}, {cmd:kernel}, {cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} are specified.
+{cmd:odds}, {cmd:samplevar}, {cmd:kernel}, {cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} are specified.
 The ATE correction is weakly negative in variance. For ATT and ATU, the correction can increase or decrease the SE.
 When the correction fires, the note "Population S.E. adjusted for estimated propensity scores" is printed.
 When propensity-score AI standard errors are reported without the correction, SEs treat the score as fixed.
@@ -415,10 +417,15 @@ displayed in their paper.
 
 {phang}
 {cmdab:pop:ulation}
-When using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, estimate the marginal variance of the matching estimator
-(Theorem 7 of Abadie and Imbens 2006) rather than the conditional variance (Theorem 6, the default).
-The marginal variance adds a component for treatment effect heterogeneity, V^τ(X), on top of the
-conditional variance. Also required for the Abadie and Imbens (2016) first-stage correction.
+Retained for backward compatibility. Population standard errors are now the default when using
+{cmdab:ai}{cmd:(}{it:integer}{cmd:)}. Specifying {cmd:population} therefore has no effect.
+
+{phang}
+{cmdab:samplevar}
+When using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, report the conditional/sample variance of the matching
+estimator (Theorem 6 of Abadie and Imbens 2006) rather than the marginal, or population, variance
+(Theorem 7, the default). The population variance adds a component for treatment effect heterogeneity,
+V^τ(X), on top of the conditional variance.
 
 {phang}
 {cmdab:altv:ariance}
