@@ -25,7 +25,7 @@ end
 // Test 1: Single outcome, no ate — 9x1 matrix, column y1:ATT
 // ------------------------------------------------------------------
 _dgp2 300
-qui psmatch2 treat x1 x2, outcome(y1) ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1) ai(1)
 matrix T = r(table)
 scalar _t1_att   = r(att_y1)
 scalar _t1_seatt = r(seatt_y1)
@@ -50,7 +50,7 @@ di as text "PASS: single outcome no ate — 9x1 matrix, y1:ATT"
 // Test 2: Single outcome with ate — 9x3, columns y1:ATT y1:ATU y1:ATE
 // ------------------------------------------------------------------
 _dgp2 400
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1)
 matrix T = r(table)
 scalar _t2_att   = r(att_y1)
 scalar _t2_seatt = r(seatt_y1)
@@ -80,7 +80,7 @@ di as text "PASS: single outcome with ate — 9x3 matrix, y1:ATT y1:ATU y1:ATE"
 // Test 3: Multiple outcomes with ate — 9x6
 // ------------------------------------------------------------------
 _dgp2 400
-qui psmatch2 treat x1 x2, outcome(y1 y2) ate ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1 y2) ate ai(1)
 matrix T = r(table)
 
 assert rowsof(T) == 9
@@ -97,7 +97,7 @@ di as text "PASS: multiple outcomes with ate — 9x6 matrix"
 // Test 4: z and p-value identities
 // ------------------------------------------------------------------
 _dgp2 400
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1)
 matrix T = r(table)
 
 // ATT: column 1
@@ -149,7 +149,7 @@ di as text "PASS: confidence interval identity"
 // Test 6: Legacy return scalars unchanged
 // ------------------------------------------------------------------
 _dgp2 300
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1)
 scalar _t6_att   = r(att)
 scalar _t6_att_y1 = r(att_y1)
 scalar _t6_seatt  = r(seatt)
@@ -174,7 +174,7 @@ di as text "PASS: legacy return scalars unchanged"
 // Test 7: Collect helper smoke test
 // ------------------------------------------------------------------
 _dgp2 400
-qui psmatch2 treat x1 x2, outcome(y1 y2) ate ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1 y2) ate ai(1)
 // psmatch2_collect reads r(table); copy it before calling so we can
 // verify collect does not corrupt r(table)
 matrix T_pre = r(table)

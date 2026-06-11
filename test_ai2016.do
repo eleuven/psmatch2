@@ -53,8 +53,8 @@ program define _assert_close_var
     assert r(min) == 1
 end
 
-local fixed_note "Note: S.E. treats the propensity score as fixed."
-local adjusted_note "Note: Population S.E. adjusted for estimated propensity scores."
+local fixed_note "Note: AI S.E. does not take into account that the propensity score is estimated"
+local adjusted_note "Note: Population AI S.E. adjusted for estimated propensity scores."
 local skipped_detail "Estimated-score correction not applied"
 
 
@@ -66,14 +66,14 @@ di as text _n "=== Test 1: Backward compatibility (ai(0)) ==="
 set seed 101
 _dgp2 300
 
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(0) population
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(0)
 scalar _t1_att   = r(att)
 scalar _t1_seatt = r(seatt)
 scalar _t1_ate   = r(ate)
 scalar _t1_seate = r(seate)
 local  _t1_qa    = r(qA_y1)
 
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(0) population
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(0)
 assert reldif(r(att),   _t1_att)   < 1e-10
 assert reldif(r(seatt), _t1_seatt) < 1e-10
 assert reldif(r(ate),   _t1_ate)   < 1e-10
@@ -94,7 +94,7 @@ set seed 202
 _dgp2 400
 
 // eligible run (internal PS estimation)
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1)
 scalar _t2_att = r(att)
 scalar _t2_atu = r(atu)
 scalar _t2_ate = r(ate)
@@ -106,7 +106,7 @@ gen double `wt_ref' = _weight
 // reference run: same probit, external pscore makes correction ineligible
 qui probit treat x1 x2
 qui predict double _ps_ext2, pr
-qui psmatch2 treat, pscore(_ps_ext2) outcome(y1) ate ai(1) population
+qui psmatch2 treat, pscore(_ps_ext2) outcome(y1) ate ai(1)
 scalar _t2_att_ref = r(att)
 scalar _t2_atu_ref = r(atu)
 scalar _t2_ate_ref = r(ate)
@@ -138,7 +138,7 @@ qui predict double _ps_ext3, pr
 
 tempfile _t3log
 log using "`_t3log'", text replace name(t3log)
-psmatch2 treat, pscore(_ps_ext3) outcome(y1) ate ai(1) population
+psmatch2 treat, pscore(_ps_ext3) outcome(y1) ate ai(1)
 scalar _t3_qA      = r(qA_y1)
 scalar _t3_qTminus = r(qTminus_y1)
 scalar _t3_qTplus  = r(qTplus_y1)
@@ -162,7 +162,7 @@ assert r(count) == 1
 _log_count "`_t3log'" "`skipped_detail'"
 assert r(count) == 0
 
-qui psmatch2 treat, pscore(_ps_ext3) outcome(y1) ate ai(1) population
+qui psmatch2 treat, pscore(_ps_ext3) outcome(y1) ate ai(1)
 assert reldif(r(seate), _t3_seate) < 1e-10
 drop _ps_ext3
 
@@ -181,7 +181,7 @@ _dgp2 500
 // reference: external pscore run, correction ineligible
 qui probit treat x1 x2
 qui predict double _ps_ext4, pr
-qui psmatch2 treat, pscore(_ps_ext4) outcome(y1) ate ai(1) population
+qui psmatch2 treat, pscore(_ps_ext4) outcome(y1) ate ai(1)
 scalar _t4_seate_ref = r(seate)
 scalar _t4_att_ref   = r(att)
 scalar _t4_atu_ref   = r(atu)
@@ -191,7 +191,7 @@ drop _ps_ext4
 // eligible run
 tempfile _t4log
 log using "`_t4log'", text replace name(t4log)
-psmatch2 treat x1 x2, outcome(y1) ate ai(1) population
+psmatch2 treat x1 x2, outcome(y1) ate ai(1)
 scalar _t4_qA       = r(qA_y1)
 scalar _t4_qTminus  = r(qTminus_y1)
 scalar _t4_qTplus   = r(qTplus_y1)
@@ -234,7 +234,7 @@ di as text "  PASS: probit eligible — qA>=0, seate corrected, point estimates 
 
 di as text _n "=== Test 5: SE identity ==="
 // data still in memory from Test 4
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1)
 
 if (r(seate) < .) {
     assert abs(r(seate)^2 - (r(seate_ai_fixed_y1)^2 - r(qA_y1))) < 1e-10
@@ -257,7 +257,7 @@ di as text _n "=== Test 6: Eligible logit ==="
 set seed 606
 _dgp2 400
 
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) population logit
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) logit
 assert r(qA_y1) >= -1e-10
 assert r(qA_y1) < .
 assert r(seate) <= r(seate_ai_fixed_y1) + 1e-8
@@ -273,7 +273,7 @@ di as text _n "=== Test 7: Multiple outcomes ==="
 set seed 707
 _dgp2 400
 
-qui psmatch2 treat x1 x2, outcome(y1 y2) ate ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1 y2) ate ai(1)
 assert r(qA_y1) >= -1e-10
 assert r(qA_y2) >= -1e-10
 assert r(qA_y1) < .
@@ -297,7 +297,7 @@ gen x_cat = ceil(3 * runiform())
 
 tempfile _t8log
 log using "`_t8log'", text replace name(t8log)
-psmatch2 treat i.x_cat x2, outcome(y1) ate ai(1) population
+psmatch2 treat i.x_cat x2, outcome(y1) ate ai(1)
 local _t8_qA = r(qA_y1)
 scalar _t8_ate = r(ate)
 log close t8log
@@ -323,19 +323,19 @@ tempfile _t9log
 log using "`_t9log'", text replace name(t9log)
 
 // 9a: positive caliper
-psmatch2 treat x1 x2, outcome(y1) ate ai(1) population caliper(0.5)
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) caliper(0.5)
 assert missing(r(qA_y1))
 
 // 9b: ties
-psmatch2 treat x1 x2, outcome(y1) ate ai(1) population ties
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) ties
 assert missing(r(qA_y1))
 
 // 9c: noreplacement
-psmatch2 treat x1 x2, outcome(y1) ate ai(1) population noreplacement
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) noreplacement
 assert missing(r(qA_y1))
 
 // 9d: altvariance
-psmatch2 treat x1 x2, outcome(y1) ate ai(1) population altvariance
+psmatch2 treat x1 x2, outcome(y1) ate ai(1) altvariance
 assert missing(r(qA_y1))
 
 log close t9log
@@ -344,12 +344,12 @@ assert r(count) == 4
 _log_count "`_t9log'" "`skipped_detail'"
 assert r(count) == 0
 
-// 9e: no population
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(1)
+// 9e: samplevar disables correction
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(1) samplevar
 assert missing(r(qA_y1))
 
 // 9f: no ate
-qui psmatch2 treat x1 x2, outcome(y1) ai(1) population
+qui psmatch2 treat x1 x2, outcome(y1) ai(1)
 assert missing(r(qA_y1))
 
 di as text "  PASS: ineligible conditions — no error, correction skipped"
@@ -363,7 +363,7 @@ di as text _n "=== Test 10: neighbor()>1 and ai()>1 ==="
 set seed 1010
 _dgp2 500
 
-qui psmatch2 treat x1 x2, outcome(y1) ate ai(2) neighbor(3) population
+qui psmatch2 treat x1 x2, outcome(y1) ate ai(2) neighbor(3)
 scalar _t10_att = r(att)
 scalar _t10_atu = r(atu)
 scalar _t10_ate = r(ate)
@@ -388,7 +388,7 @@ gen long   `t10_n3' = _n3
 
 qui probit treat x1 x2
 qui predict double _ps_ext10, pr
-qui psmatch2 treat, pscore(_ps_ext10) outcome(y1) ate ai(2) neighbor(3) population
+qui psmatch2 treat, pscore(_ps_ext10) outcome(y1) ate ai(2) neighbor(3)
 assert missing(r(qA_y1))
 assert reldif(r(att), _t10_att) < 1e-10
 assert reldif(r(atu), _t10_atu) < 1e-10
@@ -418,7 +418,7 @@ gen double idx = 0.7*x1
 gen treat = (rnormal() < idx)
 gen y1 = x1 + treat + rnormal()
 
-qui psmatch2 treat x1, outcome(y1) ate ai(1) population
+qui psmatch2 treat x1, outcome(y1) ate ai(1)
 di as text "  qA = " as result %9.3g r(qA_y1)
 assert r(qA_y1) >= -1e-10
 assert r(qA_y1) < 1e-5
