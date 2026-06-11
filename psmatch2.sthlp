@@ -165,31 +165,45 @@ You can open the dialog by {dialog psmatch2:clicking here} or by typing
 {pstd}
 The following list presents the syntax for each matching method.
 
-{title:About sample weights}
+{title:Sample weights}
 
 {pstd}
-As far as we know it's not really clear in the literature how to accommodate sample weights in the context of matching. If you are aware how to properly account for sampling weights, please let us know.
-In the meantime, here are some thoughts you might want to take into consideration when asking yourself the following questions:
+{cmd:psmatch2} allows weights in some calculations, but it is not a full
+survey-design estimator. The command does not implement design-based variance
+estimation for complex surveys, and the reported standard errors should not be
+interpreted as survey-adjusted standard errors.
 
 {pstd}
-1) Should I use weights when estimating the score?
+How sampling weights should be used depends on the target estimand. If the goal
+is a sample ATT, sampling weights need not define the estimand. If the goal is
+a population ATT, ATU, or ATE, sampling weights are part of the definition of
+the target population and should generally be used when estimating
+treatment-effect averages and assessing balance.
 
 {pstd}
-The recommendation to date seems to be to ignore sampling weights, estimate the propensity
-score using a logit model (option {cmd:logit}) and match on the (logarithm of the) odds ratio (option {cmd:odds}).
+There is no single rule for whether sampling weights should enter the
+propensity-score model. In practice, analysts should estimate the propensity
+score and choose the matching specification so that the weighted covariate
+distributions are balanced for the target population. Including the sampling
+weights in the propensity-score model may matter when the sampling design
+contains information not captured by the covariates. It may matter less when
+the covariates and matching specification already achieve good weighted
+balance.
 
 {pstd}
-2) Should I use weights after having performed matching?
+For a population ATT after matching, the weights used to average outcomes
+should refer to the treated population. A common calculation is to compare the
+weighted mean of the observed treated outcome with the weighted mean of the
+matched counterfactual outcome among treated observations on support:
+
+{phang2}{cmd:. sum outcome if treated==1 & _support==1 [aw=pweight]}{p_end}
+{phang2}{cmd:. sum _outcome if treated==1 & _support==1 [aw=pweight]}{p_end}
 
 {pstd}
-When interested in the effect of treatment on the treated, the sampling weights should
-refer to the treated alone. So the pweigths should be applied to the observed and to
-the matched outcome (if need be further restricted to the treated on the common support)
-for all the treated:
-
-{pstd}{inp: . sum outcome if treated==1 [aw=pweight]}
-
-{pstd}{inp: . sum _outcome if treated==1 [aw=pweight]}
+For population ATU or ATE, the corresponding averaging weights should match the
+target population. Users working with complex survey data should use
+survey-design methods outside {cmd:psmatch2} when design-based inference is
+required.
 
 {title:Matching within strata}
 
