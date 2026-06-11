@@ -399,6 +399,20 @@ The ATE correction is weakly negative in variance. For ATT and ATU, the correcti
 When the correction fires, the note "Population S.E. adjusted for estimated propensity scores" is printed.
 When propensity-score AI standard errors are reported without the correction, SEs treat the score as fixed.
 
+{pmore}
+Implementation note. For ATT and ATU, Abadie and Imbens (2016, p. 799) estimate
+the derivative of the target parameter with respect to the propensity-score
+parameter by matching on the full covariate vector. {cmd:psmatch2} instead uses
+an equivalent population decomposition conditional on the propensity score. In
+particular, the derivative term is written as the sum of a local
+propensity-score mean component and the difference between the within-score
+covariance terms for the treated and untreated outcome regressions. This avoids
+a separate full-covariate matching step for this component. The same-arm local
+means are computed leave-one-out. Thus the ATT and ATU first-stage corrections
+are plug-in implementations of the Abadie-Imbens population correction, but the
+derivative component is not the literal full-covariate matching estimator
+displayed in their paper.
+
 {phang}
 {cmdab:pop:ulation}
 When using {cmdab:ai}{cmd:(}{it:integer}{cmd:)}, estimate the marginal variance of the matching estimator
@@ -532,8 +546,8 @@ additional scalars are returned for each outcome variable {it:y}:
 {synopt:{cmd:r(seatt_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATT before the correction{p_end}
 {synopt:{cmd:r(seatu_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATU before the correction{p_end}
 {synopt:{cmd:r(qA_}{it:y}{cmd:)}}correction term for ATE: {cmd:r(seate)}^2 = {cmd:r(seate_ai_fixed_}{it:y}{cmd:)}^2 - {cmd:r(qA_}{it:y}{cmd:)}{p_end}
-{synopt:{cmd:r(qTminus_}{it:y}{cmd:)}, {cmd:r(qTplus_}{it:y}{cmd:)}}correction terms for ATT{p_end}
-{synopt:{cmd:r(qUminus_}{it:y}{cmd:)}, {cmd:r(qUplus_}{it:y}{cmd:)}}correction terms for ATU{p_end}
+{synopt:{cmd:r(qTminus_}{it:y}{cmd:)}, {cmd:r(qTplus_}{it:y}{cmd:)}}correction terms for ATT: first-stage covariance term and derivative term{p_end}
+{synopt:{cmd:r(qUminus_}{it:y}{cmd:)}, {cmd:r(qUplus_}{it:y}{cmd:)}}correction terms for ATU: first-stage covariance term and derivative term{p_end}
 
 {title:Examples}
 

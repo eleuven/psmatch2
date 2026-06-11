@@ -1133,8 +1133,28 @@ real scalar match_ties(real scalar obs, real scalar jmatch, real scalar j0, real
 }
 
 
-// ATT/ATU use the covariance decomposition of the derivative term,
-// rather than a separate full-X matching step.
+// Abadie-Imbens (2016) first-stage correction for propensity-score matching.
+//
+// For ATT/ATU, the published variance formula contains two score-estimation
+// terms.  The first is the c_t (or c_u) term in Theorem 2.  The second is the
+// derivative of the target parameter with respect to the propensity-score
+// parameter, d tau_t(theta)/d theta.
+//
+// Abadie and Imbens (2016, p. 799) estimate this derivative by matching on the
+// full covariate vector X:
+//
+//   E[p(X)]^{-1} E[ X f(X'theta) { mu(1,X) - mu(0,X) - tau_t } ].
+//
+// This implementation uses the equivalent conditional-on-propensity-score
+// population decomposition
+//
+//   E[p(X)]^{-1} E[ f { E[X|p] (mubar_1(p)-mubar_0(p)-tau_t)
+//      + cov(X,mu(1,X)|p) - cov(X,mu(0,X)|p) } ].
+//
+// Thus dT_vec and dU_vec are alternative plug-in estimators of the same
+// population derivative, not literal implementations of the full-X matching
+// estimator displayed on p. 799.  The same-arm local means used below are
+// leave-one-out through selfY/selfX.
 real rowvector pscorr_ai2016(
 	string scalar yvar,      string scalar selfy_var, string scalar matchy_var,
 	string scalar xvars_str, string scalar selfxvars_str,
@@ -1253,7 +1273,7 @@ real rowvector pscorr_ai2016(
 		// ATE
 		cA = cA + fi :* (Cfull1 :/ pi + Cfull0 :/ qi)
 
-		// local means for ATT/ATU
+		// Local propensity-score means for ATT/ATU. selfY is leave-one-out.
 		if (tri == 1) {
 			mu1_i = selfY[i,1]
 			mu0_i = matchY[i,1]
@@ -1266,6 +1286,12 @@ real rowvector pscorr_ai2016(
 		aT_i = mu1_i - mu0_i - att_val
 		aU_i = mu1_i - mu0_i - atu_val
 
+		// cT and cU implement the Abadie-Imbens (2016) c_t/c_u terms.
+		// dT_vec and dU_vec implement the derivative terms using the
+		// conditional-on-propensity decomposition documented above:
+		//   X*a + C1 - C0.
+		// This avoids a separate full-X matching pass for the derivative
+		// component but targets the same population derivative.
 		cT     = cT     + fi :* (Xfull :* aT_i + Cfull1 + (pi/qi) :* Cfull0)
 		dT_vec = dT_vec + fi :* (Xfull :* aT_i + Cfull1 - Cfull0)
 		cU     = cU     + fi :* (Xfull :* aU_i - Cfull0 - (qi/pi) :* Cfull1)
