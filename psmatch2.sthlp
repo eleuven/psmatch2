@@ -56,15 +56,27 @@ Treatment status is identified by {it:depvar}==1 for the treated and {it:depvar}
 {pstd}
 By default {cmd:psmatch2} calculates approximate standard errors on the treatment effects assuming independent
 observations, fixed weights, homoskedasticity of the outcome variable within the treated and within the control
-groups and that the variance of the outcome does not depend on the propensity score:
+groups and that the variance of the outcome does not depend on the propensity score.
+For the ATT:
 
 {pstd}
-1/N1*Var(Y | DM=1) + Sum(w_i^2; i in DM=0)/(N1)^2*Var(Y | DM=0)
+SE(ATT) = sqrt( Var(Y|DM=1)/N1 + Var(Y|DM=0)*Sum(w_i^2; i in DM=0)/N1^2 )
 
 {pstd}
-where N1 is the number of matched treated, DM=1 denotes the matched treated, DM=0 the matched controls and  
-w_i is the weight given to control i. {cmd:psmatch2} stores the estimate of the standard error of the ATT 
-in {it:r(seatt)} or with more than one outcome variable, in {it:r(seatt_varname)}.
+where N1 is the number of matched treated, DM=1 denotes the matched treated, DM=0 the matched controls, and
+w_i is the number of times control i is used as a match.
+With option {cmd:ate}, analogous formulas are used for ATU and ATE:
+
+{pstd}
+SE(ATU) = sqrt( Var(Y|DM=0)/N0 + Var(Y|DM=1)*Sum(w_i^2; i in DM=1)/N0^2 )
+
+{pstd}
+SE(ATE) = sqrt( [ Var(Y|DM=1)*Sum((1+w_i)^2; i in DM=1) + Var(Y|DM=0)*Sum((1+w_i)^2; i in DM=0) ] / (N0+N1)^2 )
+
+{pstd}
+where N0 is the number of matched controls and w_i is the number of times each unit is used as a match by the opposite arm.
+{cmd:psmatch2} stores the standard error of the ATT in {it:r(seatt)} or, with more than one outcome variable, in {it:r(seatt_varname)}.
+Use {cmd:ai(}{it:#}{cmd:)} for Abadie-Imbens analytical standard errors.
 
 {pstd}
 With nearest neighbor matching, analytical standard errors as in Abadie and Imbens (2006) are calculated
@@ -396,8 +408,6 @@ the score is estimated internally (not via {cmd:pscore()}),
 and none of {cmd:caliper}, {cmd:ties}, {cmd:noreplacement}, {cmd:altvariance}, {cmd:common}, {cmd:index},
 {cmd:odds}, {cmd:samplevar}, {cmd:kernel}, {cmd:llr}, {cmd:radius}, {cmd:spline}, or {cmd:mahalanobis} are specified.
 The ATE correction is weakly negative in variance. For ATT and ATU, the correction can increase or decrease the SE.
-When the correction fires, the note "Population AI S.E. adjusted for estimated propensity scores" is printed.
-When propensity-score AI standard errors are reported without the correction, SEs treat the score as fixed.
 The option {cmd:ate} determines whether ATU and ATE are displayed and returned. It does not determine whether the ATT first-stage correction is applied.
 
 {pmore}
@@ -543,12 +553,12 @@ When the Abadie-Imbens (2016) first-stage correction fires (see {cmd:ai()} above
 additional scalars are returned for each outcome variable {it:y}:
 
 {synoptset 28 tabbed}{...}
-{synopt:{cmd:r(seate_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATE before the correction{p_end}
-{synopt:{cmd:r(seatt_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATT before the correction{p_end}
-{synopt:{cmd:r(seatu_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATU before the correction{p_end}
-{synopt:{cmd:r(qA_}{it:y}{cmd:)}}correction term for ATE: {cmd:r(seate)}^2 = {cmd:r(seate_ai_fixed_}{it:y}{cmd:)}^2 - {cmd:r(qA_}{it:y}{cmd:)}{p_end}
-{synopt:{cmd:r(qTminus_}{it:y}{cmd:)}, {cmd:r(qTplus_}{it:y}{cmd:)}}correction terms for ATT: first-stage covariance term and derivative term{p_end}
-{synopt:{cmd:r(qUminus_}{it:y}{cmd:)}, {cmd:r(qUplus_}{it:y}{cmd:)}}correction terms for ATU: first-stage covariance term and derivative term{p_end}
+{synopt:{cmd:r(seatt_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATT before the AI(2016) correction{p_end}
+{synopt:{cmd:r(qTminus_}{it:y}{cmd:)}, {cmd:r(qTplus_}{it:y}{cmd:)}}ATT correction terms: first-stage covariance term and derivative term{p_end}
+{synopt:{cmd:r(seate_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATE before the correction (with {cmd:ate}){p_end}
+{synopt:{cmd:r(seatu_ai_fixed_}{it:y}{cmd:)}}AI(2006) SE for ATU before the correction (with {cmd:ate}){p_end}
+{synopt:{cmd:r(qA_}{it:y}{cmd:)}}correction term for ATE (with {cmd:ate}): {cmd:r(seate)}^2 = {cmd:r(seate_ai_fixed_}{it:y}{cmd:)}^2 - {cmd:r(qA_}{it:y}{cmd:)}{p_end}
+{synopt:{cmd:r(qUminus_}{it:y}{cmd:)}, {cmd:r(qUplus_}{it:y}{cmd:)}}ATU correction terms: first-stage covariance term and derivative term (with {cmd:ate}){p_end}
 
 {title:Examples}
 
