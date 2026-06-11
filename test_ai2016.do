@@ -287,7 +287,7 @@ di as text "  PASS: multiple outcomes — corrections outcome-specific"
 
 
 // -------------------------------------------------------------------------
-// Test 8: Factor variables — correction skipped, psmatch2 runs without error
+// Test 8: Factor variables — correction fires, SE identity holds
 // -------------------------------------------------------------------------
 
 di as text _n "=== Test 8: Factor variables ==="
@@ -295,20 +295,13 @@ set seed 808
 _dgp2 300
 gen x_cat = ceil(3 * runiform())
 
-tempfile _t8log
-log using "`_t8log'", text replace name(t8log)
-psmatch2 treat i.x_cat x2, outcome(y1) ate ai(1)
-local _t8_qA = r(qA_y1)
-scalar _t8_ate = r(ate)
-log close t8log
-assert missing(`_t8_qA')
-assert _t8_ate < .
-_log_count "`_t8log'" "`fixed_note'"
-assert r(count) == 1
-_log_count "`_t8log'" "`skipped_detail'"
-assert r(count) == 0
+qui psmatch2 treat i.x_cat x2, outcome(y1) ate ai(1)
+assert r(qA_y1) >= -1e-10
+assert r(qA_y1) < .
+assert r(ate) < .
+assert abs(r(seate)^2 - (r(seate_ai_fixed_y1)^2 - r(qA_y1))) < 1e-10
 
-di as text "  PASS: factor variables — psmatch2 runs, correction skipped"
+di as text "  PASS: factor variables — correction fires, SE identity holds"
 
 
 // -------------------------------------------------------------------------
